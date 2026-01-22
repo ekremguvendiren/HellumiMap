@@ -1,0 +1,35 @@
+{
+    "common": {
+        "loading": "Загрузка...",
+        "error": "Ошибка",
+        "success": "Успешно"
+    },
+    "map": {
+        "radar_ahead": "Внимание, радар на {{speed}}!",
+        "police_ahead": "Осторожно! Впереди полицейский пост.",
+        "hazard_ahead": "Предупреждение! Опасность на дороге.",
+        "traffic_ahead": "Впереди пробка. Возможны задержки.",
+        "still_there": "{{type}} все еще там?",
+        "yes_verify": "Да (+5 XP)",
+        "no_verify": "Нет",
+        "test_mode": "РЕЖИМ ТЕСТИРОВАНИЯ",
+        "recenter": "Центрировать",
+        "permission_denied": "Требуется геолокация"
+    },
+    "clans": {
+        "territory_owner": "Владелец территории",
+        "join_clan": "Вступить в клан",
+        "create_clan": "Создать клан"
+    },
+    "profile": {
+        "settings": "Настройки",
+        "ghost_mode": "Призрачный режим",
+        "language": "Язык",
+        "stats": "Статистика",
+        "badges": "Значки"
+    },
+    "auth": {
+        "login_title": "Войти в HellumiMap",
+        "google_continue": "Продолжить с Google"
+    }
+}

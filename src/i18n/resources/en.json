@@ -1,0 +1,31 @@
+{
+    "common": {
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success"
+    },
+    "map": {
+        "radar_ahead": "Attention! {{speed}}km speed camera ahead.",
+        "police_ahead": "Caution! Police control point ahead.",
+        "hazard_ahead": "Warning! Road hazard approaching.",
+        "traffic_ahead": "Traffic congestion ahead.",
+        "still_there": "Is the {{type}} still there?",
+        "yes_verify": "Yes (+5 XP)",
+        "no_verify": "No",
+        "test_mode": "TEST MODE ACTIVE",
+        "recenter": "Recenter",
+        "permission_denied": "Location Required"
+    },
+    "clans": {
+        "territory_owner": "Territory Owner",
+        "join_clan": "Join Clan",
+        "create_clan": "Create Clan"
+    },
+    "profile": {
+        "settings": "Settings",
+        "ghost_mode": "Ghost Mode",
+        "language": "Language",
+        "stats": "Stats",
+        "badges": "Badges"
+    }
+}

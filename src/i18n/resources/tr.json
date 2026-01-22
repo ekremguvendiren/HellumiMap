@@ -1,0 +1,31 @@
+{
+    "common": {
+        "loading": "Yükleniyor...",
+        "error": "Hata",
+        "success": "Başarılı"
+    },
+    "map": {
+        "radar_ahead": "Dikkat, {{speed}}'lik radar var!",
+        "police_ahead": "Dikkat! İleride polis kontrolü var.",
+        "hazard_ahead": "Uyarı! Yolda tehlike var.",
+        "traffic_ahead": "İleride trafik sıkışıklığı var.",
+        "still_there": "Bu {{type}} hâlâ orada mı?",
+        "yes_verify": "Evet (+5 XP)",
+        "no_verify": "Hayır",
+        "test_mode": "TEST MODU AKTİF",
+        "recenter": "Ortala",
+        "permission_denied": "Konum İzni Gerekli"
+    },
+    "clans": {
+        "territory_owner": "Bölge Hakimi",
+        "join_clan": "Klana Katıl",
+        "create_clan": "Klan Oluştur"
+    },
+    "profile": {
+        "settings": "Ayarlar",
+        "ghost_mode": "Hayalet Modu",
+        "language": "Dil",
+        "stats": "İstatistikler",
+        "badges": "Rozetler"
+    }
+}
