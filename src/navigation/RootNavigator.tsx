@@ -1,6 +1,12 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View } from 'react-native';
+import { MapScreen } from '../screens/MapScreen';
+import { LeaderboardScreen } from '../screens/LeaderboardScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { COLORS } from '../constants/colors';
 import { SafetyScreen } from '../screens/SafetyScreen';
 
 const Tab = createBottomTabNavigator();
