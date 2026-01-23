@@ -24,7 +24,7 @@ export const SafetyScreen = () => {
 
                 <GlassContainer className="p-6">
                     <Text className="text-white font-bold text-lg mb-4 text-center">
-                        This is a game. Reality comes first.
+                        This is a game, stay aware of your surroundings.
                     </Text>
 
                     <View className="space-y-4">

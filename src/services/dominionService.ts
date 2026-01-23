@@ -15,6 +15,26 @@ export interface UserBuilding {
     ruined_until: string | null;
 }
 
+export interface Monument {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    health: number;
+    max_health: number;
+    ruined_until: string | null;
+    emoji: string;
+}
+
+export interface GasStation {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    brand: string;
+    zone: string;
+}
+
 export interface InventoryItem {
     id: string;
     item_type: 'SWORD' | 'SHIELD' | 'BATTERY';
@@ -197,6 +217,170 @@ export const DominionService = {
         await supabase.from('user_buildings').update(updates).eq('id', building.id);
 
         return { damage, isRuined };
+    },
+
+    // --- Monuments ---
+
+    getMonuments: async () => {
+        const { data, error } = await supabase.from('monuments').select('*');
+        if (error) {
+            console.error(error);
+            return [];
+        }
+        return data as Monument[];
+    },
+
+    attackMonument: async (attackerId: string, monument: Monument, userLat: number, userLon: number) => {
+        // 1. Check Range (400m)
+        const dist = DominionService.getDistance(userLat, userLon, monument.latitude, monument.longitude);
+        if (dist > ATTACK_RADIUS) {
+            Alert.alert("Out of Range", `Get within ${ATTACK_RADIUS}m to attack the Boss.`);
+            return;
+        }
+
+        // 2. Calculate Damage
+        const { data: profile } = await supabase.from('profiles').select('level').eq('id', attackerId).single();
+        const attackerLevel = profile?.level || 1;
+
+        // Fetch Weapon Power (Mock) - In real implementation, join inventory
+        const weaponPower = 0;
+
+        // Bosses take less damage? Or normal damage? Let's keep it normal for fun.
+        const damage = (attackerLevel * 10) + weaponPower + Math.floor(Math.random() * 50);
+
+        // 3. Apply Damage
+        let newHp = monument.health - damage;
+        let isRuined = false;
+
+        if (newHp <= 0) {
+            isRuined = true;
+            newHp = 0;
+        }
+
+        const updates: any = { health: newHp };
+        if (isRuined) {
+            const ruinedDate = new Date();
+            ruinedDate.setHours(ruinedDate.getHours() + 48); // Ruined for 48 hours!
+            updates.ruined_until = ruinedDate.toISOString();
+        }
+
+        await supabase.from('monuments').update(updates).eq('id', monument.id);
+
+        // Reward Player for hitting Boss (Small XP)
+        // Ideally handled via RPC or separate call
+
+        return { damage, isRuined };
+    },
+
+    // --- Gas Stations ---
+
+    getGasStations: async () => {
+        const { data, error } = await supabase.from('gas_stations').select('*');
+        if (error) {
+            console.error(error);
+            return [];
+        }
+        return data as GasStation[];
+    },
+
+    buyFuel: async (userId: string, station: GasStation, userLat: number, userLon: number) => {
+        // 1. Check Range (200m)
+        const dist = DominionService.getDistance(userLat, userLon, station.latitude, station.longitude);
+        if (dist > INTERACTION_RADIUS) {
+            Alert.alert("Too Far", `Drive within ${INTERACTION_RADIUS}m to refill.`);
+            return false;
+        }
+
+        // 2. Check Coins (Cost: 100)
+        const { data: profile } = await supabase.from('profiles').select('coins').eq('id', userId).single();
+        if (!profile || profile.coins < 100) {
+            Alert.alert("Insufficient Funds", "Fuel costs 100 Coins.");
+            return false;
+        }
+
+        // 3. Deduct Coins & Apply Boost (Mock Boost: Just Alert for MVP)
+        await supabase.from('profiles').update({ coins: profile.coins - 100 }).eq('id', userId);
+
+        Alert.alert("Refueled! ⛽", "Movement speed boosted for 1 hour! (Mock Effect)");
+        return true;
+    },
+
+    // --- Gas Stations ---
+    // ... (Existing Gas methods)
+
+    // --- Fog of War & Treasures ---
+
+    /**
+     * Save a user's explored area (Fog Reveal)
+     * Limit frequency in UI to avoid DB flooding (e.g. every 100m moved)
+     */
+    saveRevealedArea: async (userId: string, lat: number, lon: number) => {
+        // Optimization: In real app, check if area already covered by existing circle
+        const { error } = await supabase.from('revealed_areas').insert({
+            user_id: userId,
+            latitude: lat,
+            longitude: lon,
+            radius: 200
+        });
+        if (error) console.error("Fog Save Error", error);
+    },
+
+    getRevealedAreas: async (userId: string) => {
+        const { data } = await supabase.from('revealed_areas').select('latitude, longitude, radius').eq('user_id', userId);
+        return data || [];
+    },
+
+    /**
+     * Get Active Treasures
+     */
+    getTreasures: async () => {
+        const { data } = await supabase.from('treasures').select('*').eq('is_claimed', false);
+        return data || [];
+    },
+
+    /**
+     * Claim Treasure
+     */
+    claimTreasure: async (userId: string, treasureId: string, lat: number, lon: number, treasureLat: number, treasureLon: number) => {
+        const dist = DominionService.getDistance(lat, lon, treasureLat, treasureLon);
+        if (dist > 50) { // Very close range for treasure (50m)
+            Alert.alert("Too Far", "Get closer (50m) to open the chest!");
+            return false;
+        }
+
+        const { error } = await supabase.from('treasures').update({
+            is_claimed: true,
+            claimed_by: userId,
+            claimed_at: new Date().toISOString()
+        }).eq('id', treasureId).eq('is_claimed', false); // Ensure concurrency safety
+
+        if (error) {
+            Alert.alert("Already Claimed", "Someone beat you to it!");
+            return false;
+        }
+
+        // Reward (Mock)
+        Alert.alert("Treasure Found! 📦", "You found 500 Coins + 1 Rare Item!");
+        // Update user coins logic here...
+        return true;
+    },
+
+    /**
+     * MOCK: Spawn Daily Treasures (Call once per day or via button for testing)
+     */
+    spawnDailyTreasures: async () => {
+        // Random points in Cyprus bounds (approx)
+        // Lat: 34.6 - 35.6, Lon: 32.3 - 34.6
+        const treasures = [];
+        for (let i = 0; i < 10; i++) {
+            treasures.push({
+                latitude: 34.8 + Math.random() * 0.7,
+                longitude: 32.5 + Math.random() * 1.5,
+                is_claimed: false
+            });
+        }
+        await supabase.from('treasures').insert(treasures);
+        Alert.alert("Admin", "Spawned 10 Daily Treasures!");
     },
 
     // --- Inventory ---

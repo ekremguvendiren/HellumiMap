@@ -1,4 +1,4 @@
-# HellumiMap 🍊
+# HalloumiMap 🧀
 
 > **The "Waze" of Cyprus.**  
 > Real-time collaborative navigation, clan territories, and community-driven road safety.
@@ -20,6 +20,8 @@ Our mission starts in the **Island of Cyprus**, but the conquest doesn't end her
 - **🎮 Gamification (Müdavim)**: Earn XP, unlock tiers (Traveler -> Explorer -> Müdavim), and collect badges for your profile.
 - **🌍 Multi-Language**: Fully localized in **Turkish (TR)**, **English (EN)**, **Greek (EL)**, and **Russian (RU)**.
 - **😎 Emoji Avatars**: Use custom emojis as your map marker with clan-colored borders.
+- **🔋 Live EV Charging**: Real-time status of charging stations (Open Charge Map).
+- **🚧 Green Line Zone**: UN Buffer Zone simulation with Elite Guardian Bots.
 - **🔐 Social Auth**: Seamless "Continue with Google" integration.
 - **👻 Ghost Mode**: Browse the map anonymously without sharing your location.
 

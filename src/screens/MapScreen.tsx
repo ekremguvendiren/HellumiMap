@@ -1,7 +1,160 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, Image } from 'react-native';
-import MapView from 'react-native-map-clustering'; // Cluster Import
-import { Marker, Callout, PROVIDER_GOOGLE, Circle, Polyline } from 'react-native-maps'; // Correct Imports
+import { EVService, EVStation } from '../services/evService';
+import { GeoUtils, GREEN_LINE_POLYGON } from '../utils/geoUtils';
+import MapView from 'react-native-map-clustering';
+import { Marker, Callout, PROVIDER_GOOGLE, Circle, Polyline, Polygon } from 'react-native-maps'; // Correct Imports
+
+// ... (In MapScreen component)
+
+// 6. EV Stations & Green Line
+const [evStations, setEvStations] = useState<EVStation[]>([]);
+const [inBufferZone, setInBufferZone] = useState(false);
+
+// Load World Data
+useEffect(() => {
+    const loadWorld = async () => {
+        const b = await DominionService.getBuildings();
+        setBuildings(b);
+        const m = await DominionService.getMonuments();
+        setMonuments(m);
+        const ev = await EVService.fetchStations();
+        setEvStations(ev);
+    };
+    loadWorld();
+}, []);
+
+// Monitor Buffer Zone
+useEffect(() => {
+    if (!location) return;
+    const inside = GeoUtils.isPointInPolygon(location.coords, GREEN_LINE_POLYGON);
+    if (inside && !inBufferZone) {
+        Alert.alert("Warning", "Entering UN Buffer Zone! Watch out for Guardians.");
+        // Change Circle Color visual logic via state
+    }
+    setInBufferZone(inside);
+}, [location]);
+
+// ...
+
+{/* 1. Dominion Interaction Circle (200m) */ }
+{
+    location && (
+        <Circle
+            center={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
+            radius={200}
+            fillColor={inBufferZone ? "rgba(255, 0, 0, 0.2)" : "rgba(52, 152, 219, 0.2)"}
+            strokeColor={inBufferZone ? "rgba(255, 0, 0, 0.5)" : "rgba(52, 152, 219, 0.5)"}
+            strokeWidth={1}
+            zIndex={900}
+        />
+    )
+}
+
+{/* GREEN LINE POLYGON */ }
+<Polygon
+    coordinates={GREEN_LINE_POLYGON}
+    fillColor="rgba(0, 255, 0, 0.2)"
+    strokeColor="lime"
+    strokeWidth={2}
+/>
+
+{/* EV STATIONS */ }
+{
+    evStations.map((ev) => (
+        <Marker
+            key={`ev-${ev.ID}`}
+            coordinate={{ latitude: ev.AddressInfo.Latitude, longitude: ev.AddressInfo.Longitude }}
+            title={ev.AddressInfo.Title}
+            description={`Power: ${ev.Connections?.[0]?.PowerKW || '?'} kW`}
+        >
+            <View className="items-center justify-center bg-green-100 p-1 rounded-full border border-green-600">
+                <Text style={{ fontSize: 20 }}>🔋</Text>
+            </View>
+            <Callout>
+                <View className="p-2 w-48">
+                    <Text className="font-bold mb-1">{ev.AddressInfo.Title}</Text>
+                    <Text className="text-xs text-gray-600 mb-1">{ev.OperatorInfo?.Title || 'Unknown Operator'}</Text>
+                    <Text className="text-xs text-gray-500">
+                        {ev.Connections?.[0]?.PowerKW} kW - {ev.Connections?.[0]?.ConnectionType?.Title}
+                    </Text>
+                    <Text className="text-[10px] text-gray-400 mt-2 italic">Data provided by Open Charge Map</Text>
+                </View>
+            </Callout>
+        </Marker>
+    ))
+}
+
+{/* 2. User Buildings */ }
+{
+    buildings.map((b) => (
+        <Marker
+            key={b.id}
+            coordinate={{ latitude: b.latitude, longitude: b.longitude }}
+            title={`Building Lv.${b.level}`}
+            onCalloutPress={() => {
+                // ... existing logic ...
+                if (b.user_id === currentUser?.id) {
+                    DominionService.collectIncome(currentUser.id, b, location!.coords.latitude, location!.coords.longitude);
+                } else if (currentUser) {
+                    DominionService.attackBuilding(currentUser.id, b, location!.coords.latitude, location!.coords.longitude);
+                }
+            }}
+        >
+            <View className="items-center">
+                <Text style={{ fontSize: 32 }}>{DominionService.getBuildingEmoji(b.level)}</Text>
+                {b.ruined_until && <Text className="absolute text-2xl -top-2">🔥</Text>}
+                <View className="bg-black/50 px-2 rounded-full mt-1">
+                    <Text className="text-white text-[10px] font-bold">Lv.{b.level}</Text>
+                </View>
+            </View>
+        </Marker>
+    ))
+}
+
+{/* 3. Monuments (World Bosses) */ }
+{
+    monuments.map((m) => (
+        <Marker
+            key={m.id}
+            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+            title={m.name}
+            onCalloutPress={() => {
+                if (!location || !currentUser) return;
+                Alert.alert("Attack Boss?", `Attack ${m.name}?`, [
+                    { text: "Cancel" },
+                    { text: "Attack", onPress: () => DominionService.attackMonument(currentUser.id, m, location.coords.latitude, location.coords.longitude) }
+                ]);
+            }}
+        >
+            <View className="items-center">
+                <Text style={{ fontSize: 40 }}>{m.emoji}</Text>
+                <View className="bg-red-900/80 px-2 rounded-full mt-1 border border-red-500">
+                    <Text className="text-white text-[10px] font-bold">BOSS</Text>
+                </View>
+            </View>
+        </Marker>
+    ))
+}
+
+{/* ... Districts ... */ }
+
+{
+    reports.map((report) => (
+        <Marker
+            key={report.id}
+            coordinate={{ latitude: report.latitude, longitude: report.longitude }}
+            title={report.type}
+        >
+            <MemoizedCustomMarker type={report.type} user={report.user} />
+            <Callout>
+                <View className="p-2 w-40">
+                    <Text className="font-bold">{report.type}</Text>
+                </View>
+            </Callout>
+        </Marker>
+    ))
+}
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
 import { GlassContainer } from '../components/common/GlassContainer';
@@ -16,7 +169,7 @@ import { NavigationService, Bot } from '../services/navigationService';
 import { calculateNextLevelXp, REWARDS, COIN_REWARDS } from '../utils/gamification';
 import { XPProgressBar } from '../components/game/XPProgressBar';
 import { HellumiStarMarker, HellumiStar } from '../components/map/HellumiStarMarker';
-import { DominionService, UserBuilding } from '../services/dominionService';
+import { DominionService, UserBuilding, Monument, GasStation } from '../services/dominionService';
 import { BackpackModal } from '../components/game/BackpackModal';
 
 import { NAVIGATION_MAP_STYLE } from '../constants/MapStyles';
@@ -137,7 +290,11 @@ const CustomMarker = ({ type, user, isFixed, speed_limit, emoji }: { type: strin
             <Text style={{ fontSize: 16 }}>{symbol}</Text>
         </View>
     );
+
 }
+
+// Optimized Marker Component
+const MemoizedCustomMarker = React.memo(CustomMarker);
 
 export const MapScreen = () => {
     const { t } = useTranslation();
@@ -159,17 +316,59 @@ export const MapScreen = () => {
 
     // 5. Dominion (GPS-RPG)
     const [buildings, setBuildings] = useState<UserBuilding[]>([]);
+    const [monuments, setMonuments] = useState<Monument[]>([]);
+    const [gasStations, setGasStations] = useState<GasStation[]>([]);
     const [showBackpack, setShowBackpack] = useState(false);
 
-    // Load Buildings periodically
+    // 6. EV Stations & Green Line
+    const [evStations, setEvStations] = useState<EVStation[]>([]);
+    const [inBufferZone, setInBufferZone] = useState(false);
+
+    // 7. Fog & Treasures
+    const [revealedAreas, setRevealedAreas] = useState<{ latitude: number, longitude: number }[]>([]);
+    const [treasures, setTreasures] = useState<any[]>([]);
+
+    // Load World Data
     useEffect(() => {
-        const loadBuildings = async () => {
+        const loadWorld = async () => {
             const b = await DominionService.getBuildings();
             setBuildings(b);
+            const m = await DominionService.getMonuments();
+            setMonuments(m);
+            const ev = await EVService.fetchStations();
+            setEvStations(ev);
+            const gas = await DominionService.getGasStations();
+            setGasStations(gas);
+            const t = await DominionService.getTreasures();
+            setTreasures(t);
         };
-        loadBuildings();
-        // Setup polling or realtime sub for buildings here if desired
+        loadWorld();
     }, []);
+
+    // Monitor Buffer Zone
+    useEffect(() => {
+        if (!location) return;
+        const inside = GeoUtils.isPointInPolygon(location.coords, GREEN_LINE_POLYGON);
+        if (inside && !inBufferZone) {
+            Alert.alert("Warning", "Entering UN Buffer Zone! Watch out for Guardians.");
+        }
+        setInBufferZone(inside);
+
+        // Reveal Fog (Simple MVP)
+        setRevealedAreas(prev => [...prev, location.coords]);
+
+        // Treasure Audio Logic (Geiger Counter)
+        if (treasures.length > 0) {
+            const closestT = treasures.reduce((prev, curr) => {
+                const d = getDistanceMeters(location.coords.latitude, location.coords.longitude, curr.latitude, curr.longitude);
+                return (d < (prev?.dist || Infinity)) ? { ...curr, dist: d } : prev;
+            }, { dist: Infinity });
+
+            if (closestT && closestT.dist < 100) {
+                console.log("Beep! Treasure nearby:", closestT.dist);
+            }
+        }
+    }, [location]);
 
     const handleBuild = async () => {
         if (!location || !currentUser) return;
@@ -558,6 +757,83 @@ export const MapScreen = () => {
                             </View>
                         </View>
                     </Marker>
+
+                ))}
+
+                {/* 3. Monuments (World Bosses) */}
+                {monuments.map((m) => (
+                    <Marker
+                        key={m.id}
+                        coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+                        title={m.name}
+                        onCalloutPress={() => {
+                            if (!location || !currentUser) return;
+                            Alert.alert("Attack Boss?", `Attack ${m.name}?`, [
+                                { text: "Cancel" },
+                                { text: "Attack", onPress: () => DominionService.attackMonument(currentUser.id, m, location.coords.latitude, location.coords.longitude) }
+                            ]);
+                        }}
+                    >
+                        <View className="items-center">
+                            <Text style={{ fontSize: 40 }}>{m.emoji}</Text>
+                            <View className="bg-red-900/80 px-2 rounded-full mt-1 border border-red-500">
+                                <Text className="text-white text-[10px] font-bold">BOSS</Text>
+                            </View>
+                        </View>
+                    </Marker>
+                ))}
+
+                {/* 4. Gas Stations (Fuel) */}
+                {gasStations.map((g) => (
+                    <Marker
+                        key={g.id}
+                        coordinate={{ latitude: g.latitude, longitude: g.longitude }}
+                        title={g.name}
+                        onCalloutPress={() => {
+                            if (!location || !currentUser) return;
+                            Alert.alert("Gas Station", `Buy Fuel at ${g.brand}? (100 Coins)`, [
+                                { text: "Cancel" },
+                                { text: "Buy Fuel ⛽", onPress: () => DominionService.buyFuel(currentUser.id, g, location.coords.latitude, location.coords.longitude) }
+                            ]);
+                        }}
+                    >
+                        <View className="items-center justify-center bg-orange-100 p-1 rounded-full border border-orange-500">
+                            <Text style={{ fontSize: 20 }}>⛽</Text>
+                        </View>
+                    </Marker>
+                ))}
+
+                {/* 5. FOG OF WAR (Global Polygon with Holes) */}
+                {/* MVP: Render revealed light circles */}
+                {revealedAreas.slice(-50).map((area, i) => (
+                    <Circle
+                        key={`fog-${i}`}
+                        center={area}
+                        radius={200}
+                        fillColor="rgba(255, 255, 255, 0.05)" // Lighten the area
+                        zIndex={1}
+                    />
+                ))}
+
+                {/* 6. TREASURES */}
+                {treasures.map((t) => (
+                    <Marker
+                        key={t.id}
+                        coordinate={{ latitude: t.latitude, longitude: t.longitude }}
+                        title="Treasure Chest"
+                        onCalloutPress={() => {
+                            if (!location || !currentUser) return;
+                            DominionService.claimTreasure(currentUser.id, t.id, location.coords.latitude, location.coords.longitude, t.latitude, t.longitude)
+                                .then(success => {
+                                    if (success) {
+                                        // Remove from local state
+                                        setTreasures(prev => prev.filter(x => x.id !== t.id));
+                                    }
+                                });
+                        }}
+                    >
+                        <Text style={{ fontSize: 30 }}>📦</Text>
+                    </Marker>
                 ))}
 
                 {/* Districts (Territories) */}
@@ -637,7 +913,8 @@ export const MapScreen = () => {
                         coordinate={{ latitude: report.latitude, longitude: report.longitude }}
                         title={report.type}
                     >
-                        <CustomMarker type={report.type} user={report.user} />
+
+                        <MemoizedCustomMarker type={report.type} user={report.user} />
                         <Callout>
                             <View className="p-2 w-40">
                                 <Text className="font-bold">{report.type}</Text>
@@ -715,15 +992,17 @@ export const MapScreen = () => {
             </TouchableOpacity>
 
             {/* Verification Card */}
-            {nearestReport && (
-                <View className="absolute bottom-32 w-full z-10 px-2">
-                    <VerificationCard
-                        reportType={nearestReport.type}
-                        onVerify={() => handleVerify(nearestReport.id, 'VERIFY')}
-                        onReject={() => handleVerify(nearestReport.id, 'REJECT')}
-                    />
-                </View>
-            )}
+            {
+                nearestReport && (
+                    <View className="absolute bottom-32 w-full z-10 px-2">
+                        <VerificationCard
+                            reportType={nearestReport.type}
+                            onVerify={() => handleVerify(nearestReport.id, 'VERIFY')}
+                            onReject={() => handleVerify(nearestReport.id, 'REJECT')}
+                        />
+                    </View>
+                )
+            }
 
             {/* Report FAB */}
             <View className="absolute bottom-10 self-center z-50">
@@ -748,6 +1027,6 @@ export const MapScreen = () => {
 
             {/* Modals */}
             {currentUser && <BackpackModal visible={showBackpack} onClose={() => setShowBackpack(false)} userId={currentUser.id} />}
-        </View>
+        </View >
     );
 };
