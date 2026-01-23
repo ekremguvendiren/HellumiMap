@@ -1,6 +1,5 @@
 # HalloumiMap 🧀
-
-> **The "Waze" of Cyprus.**  
+ 
 > Real-time collaborative navigation, clan territories, and community-driven road safety.
 
 HellumiMap is a social mapping application built specifically for the unique driving culture of Cyprus. It combines real-time hazard reporting (Speed Cameras, Police, Traffic) with gamification elements like XP, Tiers, and Clan Territories.
