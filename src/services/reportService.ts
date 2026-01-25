@@ -1,9 +1,10 @@
 import { supabase } from './supabase';
+import { calculateNextLevelXp, COIN_REWARDS } from '../utils/gamification';
 
 export interface Report {
     id: string;
     user_id: string;
-    type: 'SPEED_CAMERA' | 'POLICE' | 'TRAFFIC' | 'HAZARD' | 'HELLUMI_SPOT' | 'ACCIDENT';
+    type: 'SPEED_CAMERA' | 'POLICE' | 'TRAFFIC' | 'HAZARD' | 'HELLUMI_SPOT' | 'ACCIDENT' | 'MAP_ISSUE' | 'GAS' | 'PLACE' | 'HELP';
     description?: string;
     location: any; // PostGIS point
     latitude: number; // Parsed for UI
@@ -53,7 +54,7 @@ export const ReportService = {
        */
     async createReport(
         userId: string,
-        type: 'SPEED_CAMERA' | 'POLICE' | 'TRAFFIC' | 'HAZARD' | 'HELLUMI_SPOT' | 'ACCIDENT',
+        type: 'SPEED_CAMERA' | 'POLICE' | 'TRAFFIC' | 'HAZARD' | 'HELLUMI_SPOT' | 'ACCIDENT' | 'MAP_ISSUE' | 'GAS' | 'PLACE' | 'HELP',
         latitude: number,
         longitude: number
     ) {
@@ -86,7 +87,12 @@ export const ReportService = {
                 case 'SPEED_CAMERA': xpReward = 15; break;
                 case 'HAZARD': xpReward = 15; break;
                 case 'ACCIDENT': xpReward = 20; break;
-                case 'TRAFFIC': xpReward = 10; break; // Defaulting traffic
+                case 'TRAFFIC': xpReward = 10; break;
+                case 'HELLUMI_SPOT': xpReward = 50; break; // High reward for custom spots
+                case 'GAS': xpReward = 5; break;
+                case 'MAP_ISSUE': xpReward = 15; break;
+                case 'PLACE': xpReward = 5; break;
+                case 'HELP': xpReward = 25; break; // Help requests get more
                 default: xpReward = 5;
             }
 
@@ -111,13 +117,15 @@ export const ReportService = {
                     let newCoins = (profile.coins || 0) + coinReward;
                     let currentLevel = profile.level || 1;
 
-                    // Level Up Formula: Level * 100
-                    const xpNeeded = currentLevel * 100;
+
+
+                    // Level Up Formula: Level^2 * 500
+                    const xpNeeded = calculateNextLevelXp(currentLevel);
+
                     if (newXp >= xpNeeded) {
                         currentLevel += 1;
-                        // Optional: Reset XP? No, keeping cumulative for Tiers context.
-                        // But Level Up check implies simplified "Level * 100" threshold.
-                        // If I have 90 XP (L1), gain 20 -> 110 XP. 110 > 100 -> Level 2.
+                        newCoins += COIN_REWARDS.LEVEL_UP_BONUS; // Bonus 1000 Coins
+                        // We rely on client (MapScreen) to detect this change and show animation
                     }
 
                     await supabase

@@ -37,23 +37,19 @@ export interface GasStation {
 
 export interface InventoryItem {
     id: string;
-    item_type: 'SWORD' | 'SHIELD' | 'BATTERY';
+    item_type: 'SWORD' | 'SHIELD' | 'BATTERY' | 'POTION';
     power: number;
     is_equipped: boolean;
 }
 
 export const DominionService = {
     // --- Helper: Get Emojis ---
+    // --- Helper: Get Emojis (Based on Level) ---
     getBuildingEmoji: (level: number) => {
-        if (level >= 91) return '👑'; // Imperial Palace
-        if (level >= 81) return '🚀'; // Sci-Fi
-        if (level >= 71) return '🏯'; // Fortress
-        if (level >= 61) return '🏰'; // Castle
-        if (level >= 51) return '🏛️'; // Grand Temple
-        if (level >= 41) return '🏦'; // Bank/Treasury
-        if (level >= 31) return '🏢'; // Office
-        if (level >= 21) return '🏡'; // Garden House
-        if (level >= 11) return '🏠'; // House
+        if (level >= 81) return '👑'; // Imperial Palace (81-100)
+        if (level >= 51) return '🏰'; // Castle (51-80)
+        if (level >= 26) return '🏢'; // Agency (26-50)
+        if (level >= 11) return '🏠'; // House (11-25)
         return '⛺'; // Tent (1-10)
     },
 
@@ -87,8 +83,10 @@ export const DominionService = {
         }
         // Parse location if needed, assuming PostGIS returns string or we handle it
         return data.map((b: any) => {
-            // Basic parsing if location is returned as string "POINT(lon lat)"
-            let lat = 0, lon = 0;
+            // If location column exists (PostGIS), parse it. Otherwise use lat/lon columns.
+            let lat = b.latitude;
+            let lon = b.longitude;
+
             if (typeof b.location === 'string') {
                 const coords = b.location.replace('POINT(', '').replace(')', '').split(' ');
                 lon = parseFloat(coords[0]);
@@ -105,17 +103,29 @@ export const DominionService = {
         // 1. Check distance to ANY other building (Mock check for now)
         // Ideally we do a geospatial query: "Do any buildings intersect 50m radius?"
 
-        // 2. Check Cost (e.g. 500 Coins)
-        const { data: profile } = await supabase.from('profiles').select('coins').eq('id', userId).single();
-        if (!profile || profile.coins < 500) {
-            Alert.alert("Insufficient Funds", "You need 500 Hellumi Coins to build.");
+        // 2. Check Cost & Energy
+        // Cost: 300 for Level 1
+        const cost = 300;
+        const energyCost = 20;
+
+        const { data: profile } = await supabase.from('profiles').select('coins, energy').eq('id', userId).single();
+
+        if (!profile) return false;
+
+        if (profile.coins < cost) {
+            Alert.alert("Insufficient Funds", `Need ${cost} Halloumi Coins 💰. Have ${profile.coins}.`);
+            return false;
+        }
+        if ((profile.energy || 0) < energyCost) {
+            Alert.alert("Exhausted", "Not enough Energy (Need 20⚡). Rest a bit.");
             return false;
         }
 
         // 3. Insert
         const { error } = await supabase.from('user_buildings').insert({
             user_id: userId,
-            location: `POINT(${lon} ${lat})`,
+            latitude: lat,
+            longitude: lon,
             level: 1,
             health: 1000
         });
@@ -125,8 +135,12 @@ export const DominionService = {
             return false;
         }
 
-        // 4. Deduct Coins
-        await supabase.from('profiles').update({ coins: profile.coins - 500 }).eq('id', userId);
+        // 4. Deduct Coins & Energy
+        await supabase.from('profiles').update({
+            coins: profile.coins - cost,
+            energy: profile.energy - energyCost
+        }).eq('id', userId);
+
         return true;
     },
 
@@ -138,6 +152,13 @@ export const DominionService = {
         const dist = DominionService.getDistance(userLat, userLon, building.latitude, building.longitude);
         if (dist > INTERACTION_RADIUS) {
             Alert.alert("Too Far", `You must be within ${INTERACTION_RADIUS}m to collect.`);
+            return;
+        }
+
+        // Check Energy
+        const { data: profile } = await supabase.from('profiles').select('energy, coins, xp').eq('id', userId).single();
+        if ((profile?.energy || 0) < 5) {
+            Alert.alert("No Energy", "Need 5⚡ to collect.");
             return;
         }
 
@@ -160,15 +181,15 @@ export const DominionService = {
 
         // 4. Update Profile
         // Note: Ideally use RPC for atomicity
-        const { data: profile } = await supabase.from('profiles').select('coins, xp').eq('id', userId).single();
         if (profile) {
             await supabase.from('profiles').update({
                 coins: profile.coins + coinsEarned,
-                xp: profile.xp + xpEarned
+                xp: profile.xp + xpEarned,
+                energy: (profile.energy || 100) - 5 // Deduct 5 Energy
             }).eq('id', userId);
         }
 
-        Alert.alert("Collected!", `+${coinsEarned} Coins | +${xpEarned} XP`);
+        Alert.alert("Collected!", `+${coinsEarned} Halloumi Coins 💰 | +${xpEarned} XP`);
     },
 
     /**
@@ -232,44 +253,83 @@ export const DominionService = {
 
     attackMonument: async (attackerId: string, monument: Monument, userLat: number, userLon: number) => {
         // 1. Check Range (400m)
+        // 1. Check Range (100m - Siege Range)
         const dist = DominionService.getDistance(userLat, userLon, monument.latitude, monument.longitude);
-        if (dist > ATTACK_RADIUS) {
-            Alert.alert("Out of Range", `Get within ${ATTACK_RADIUS}m to attack the Boss.`);
+        if (dist > 100) {
+            Alert.alert("Too Far", "Must be within 100m to Siege!");
             return;
         }
 
-        // 2. Calculate Damage
-        const { data: profile } = await supabase.from('profiles').select('level').eq('id', attackerId).single();
-        const attackerLevel = profile?.level || 1;
+        // 2. Check Peace Shield
+        if (monument.ruined_until && new Date(monument.ruined_until) > new Date()) {
+            Alert.alert("Protected 🛡️", "This monument is under Peace Shield.");
+            return;
+        }
 
-        // Fetch Weapon Power (Mock) - In real implementation, join inventory
-        const weaponPower = 0;
+        // 2. Execute Attack (RPC preferred for atomicity)
+        // We try RPC first, if not exists (dev env), we fallback to client logic (less secure but works for MVP)
+        const damageAmount = 500 + Math.floor(Math.random() * 200); // Heavy Siege Damage
 
-        // Bosses take less damage? Or normal damage? Let's keep it normal for fun.
-        const damage = (attackerLevel * 10) + weaponPower + Math.floor(Math.random() * 50);
+        const { data: rpcData, error: rpcError } = await supabase.rpc('attack_monument', {
+            attacker_id: attackerId,
+            monument_id: monument.id,
+            damage_amount: damageAmount
+        });
 
-        // 3. Apply Damage
-        let newHp = monument.health - damage;
-        let isRuined = false;
+        if (!rpcError && rpcData) {
+            if (rpcData.success) {
+                if (rpcData.is_victory) {
+                    Alert.alert("VICTORY! 🏆", "You Liberated the Monument!\n\n+5000 Halloumi Coins 💰\n+2000 XP 🌟\nBadge: Liberator");
+                    return { damage: damageAmount, isRuined: true };
+                } else {
+                    return { damage: damageAmount, isRuined: false, remaining: rpcData.remaining_health };
+                }
+            } else {
+                Alert.alert("Error", rpcData.message);
+                return;
+            }
+        }
+
+        // Fallback Client Logic (If RPC missing)
+        // Check Energy
+        const { data: profile } = await supabase.from('profiles').select('energy').eq('id', attackerId).single();
+        if ((profile?.energy || 0) < 5) {
+            Alert.alert("Exhausted", "Need 5⚡ to Siege.");
+            return;
+        }
+
+        // Deduct Energy
+        await supabase.from('profiles').update({ energy: (profile?.energy || 0) - 5 }).eq('id', attackerId);
+
+        let newHp = monument.health - damageAmount;
+        let isVictory = false;
 
         if (newHp <= 0) {
-            isRuined = true;
-            newHp = 0;
+            isVictory = true;
+            newHp = 10000; // Reset
+
+            // Rewards
+            await supabase.rpc('increment_player_stats', {
+                user_id: attackerId,
+                add_coins: 5000,
+                add_xp: 2000
+            });
+
+            // Peace Shield
+            const shieldTime = new Date();
+            shieldTime.setHours(shieldTime.getHours() + 1);
+
+            await supabase.from('monuments').update({
+                health: 10000,
+                ruined_until: shieldTime.toISOString()
+            }).eq('id', monument.id);
+
+            Alert.alert("VICTORY! 🏆", "You Liberated the Monument!\n\n+5000 Halloumi Coins 💰\n+2000 XP 🌟");
+        } else {
+            await supabase.from('monuments').update({ health: newHp }).eq('id', monument.id);
         }
 
-        const updates: any = { health: newHp };
-        if (isRuined) {
-            const ruinedDate = new Date();
-            ruinedDate.setHours(ruinedDate.getHours() + 48); // Ruined for 48 hours!
-            updates.ruined_until = ruinedDate.toISOString();
-        }
-
-        await supabase.from('monuments').update(updates).eq('id', monument.id);
-
-        // Reward Player for hitting Boss (Small XP)
-        // Ideally handled via RPC or separate call
-
-        return { damage, isRuined };
+        return { damage: damageAmount, isRuined: isVictory, remaining: newHp };
     },
 
     // --- Gas Stations ---
@@ -294,7 +354,7 @@ export const DominionService = {
         // 2. Check Coins (Cost: 100)
         const { data: profile } = await supabase.from('profiles').select('coins').eq('id', userId).single();
         if (!profile || profile.coins < 100) {
-            Alert.alert("Insufficient Funds", "Fuel costs 100 Coins.");
+            Alert.alert("Insufficient Funds", "Fuel costs 100 Halloumi Coins 💰.");
             return false;
         }
 
@@ -360,7 +420,7 @@ export const DominionService = {
         }
 
         // Reward (Mock)
-        Alert.alert("Treasure Found! 📦", "You found 500 Coins + 1 Rare Item!");
+        Alert.alert("Treasure Found! 📦", "You found 500 Halloumi Coins 💰 + 1 Rare Item!");
         // Update user coins logic here...
         return true;
     },
@@ -394,18 +454,34 @@ export const DominionService = {
      * Drop Item (Called when Bot defeated)
      */
     dropItemChance: async (userId: string) => {
-        if (Math.random() > 0.3) return null; // 30% chance
+        // Requirement: 20% Chance
+        if (Math.random() > 0.2) return null;
 
         const types = ['SWORD', 'SHIELD', 'BATTERY'];
         const type = types[Math.floor(Math.random() * types.length)];
         const power = Math.floor(Math.random() * 20) + 10; // 10-30 power
 
-        const { data } = await supabase.from('inventory').insert({
+        const { data, error } = await supabase.from('inventory').insert({
             user_id: userId,
-            item_type: type,
+            item_type: type, // Matches SQL: item_type TEXT
             power: power
         }).select().single();
 
+        if (error) {
+            console.error("Drop Item Error", error);
+            return null;
+        }
+
         return data;
+    },
+
+    /**
+     * Equip an item (Unequip others of same type if needed, or just toggle)
+     * MVP: Simple toggle. 
+     */
+    toggleEquipItem: async (userId: string, itemId: string, isEquipped: boolean) => {
+        // If equipping, ideally unequip others? Keeping simple for now.
+        const { error } = await supabase.from('inventory').update({ is_equipped: !isEquipped }).eq('id', itemId);
+        return !error;
     }
 };

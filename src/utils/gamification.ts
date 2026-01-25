@@ -1,7 +1,15 @@
-// XP Threshold to level up: Level * 100
-// Level 1 -> 100 XP -> Level 2
-// Level 2 -> 200 XP -> Level 3 (Total accrued? No, usually cumulative in RPGs, but keep simple: Current Level * 100 to pass)
-export const calculateNextLevelXp = (level: number) => level * 100;
+// XP Threshold to level up: Level * Level * 500
+// Level 1 -> 500 XP
+// Level 2 -> 2000 XP
+export const calculateNextLevelXp = (level: number) => {
+    return level * level * 500;
+};
+
+// Building Cost: 300 * 1.2^(Level-1)
+export const calculateBuildingCost = (currentLevel: number) => {
+    const basePrice = 300;
+    return Math.floor(basePrice * Math.pow(1.2, currentLevel - 1));
+};
 
 export const REWARDS = {
     REPORT_POLICE: 15,
@@ -9,6 +17,7 @@ export const REWARDS = {
     REPORT_HAZARD: 15,
     REPORT_ACCIDENT: 20,
     BOT_DEFEAT: 50,
+    HELLUMI_SPOT: 50,
 };
 
 export const COIN_REWARDS = {
@@ -17,6 +26,7 @@ export const COIN_REWARDS = {
     REPORT_CHANCE: 0.2, // 20%
     REPORT_MIN: 5,
     REPORT_MAX: 10,
+    LEVEL_UP_BONUS: 1000,
 };
 
 export const TIERS = [
@@ -32,15 +42,16 @@ export const getTier = (xp: number) => {
     return [...TIERS].reverse().find(t => xp >= t.minXp) || TIERS[0];
 };
 
-export const getTierProgress = (xp: number) => {
-    const currentTierIndex = TIERS.findIndex(t => t.name === getTier(xp).name);
-    const nextTier = TIERS[currentTierIndex + 1];
+export const getTierProgress = (xp: number, level: number) => {
+    // Progress relative to NEXT level threshold, not Tiers anymore
+    const needs = calculateNextLevelXp(level);
+    const prevNeeds = calculateNextLevelXp(level - 1);
 
-    if (!nextTier) return 100; // Max level
+    const range = needs - prevNeeds;
+    const current = xp - prevNeeds;
 
-    const currentTierXp = TIERS[currentTierIndex].minXp;
-    const needed = nextTier.minXp - currentTierXp;
-    const earned = xp - currentTierXp;
+    // Safety for Level 1
+    if (level === 1) return Math.min(Math.round((xp / needs) * 100), 100);
 
-    return Math.min(Math.round((earned / needed) * 100), 100);
+    return Math.min(Math.round((current / range) * 100), 100);
 };

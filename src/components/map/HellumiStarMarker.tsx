@@ -19,7 +19,7 @@ export const HellumiStarMarker = ({ spot }: HellumiStarMarkerProps) => {
         <Marker
             coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
             title={spot.name}
-            trackViewChanges={false}
+            tracksViewChanges={false}
         >
             {/* Custom Gold Halloumi Icon */}
             <View className="items-center">

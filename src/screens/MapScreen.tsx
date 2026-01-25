@@ -5,157 +5,8 @@ import { GeoUtils, GREEN_LINE_POLYGON } from '../utils/geoUtils';
 import MapView from 'react-native-map-clustering';
 import { Marker, Callout, PROVIDER_GOOGLE, Circle, Polyline, Polygon } from 'react-native-maps'; // Correct Imports
 
-// ... (In MapScreen component)
-
-// 6. EV Stations & Green Line
-const [evStations, setEvStations] = useState<EVStation[]>([]);
-const [inBufferZone, setInBufferZone] = useState(false);
-
-// Load World Data
-useEffect(() => {
-    const loadWorld = async () => {
-        const b = await DominionService.getBuildings();
-        setBuildings(b);
-        const m = await DominionService.getMonuments();
-        setMonuments(m);
-        const ev = await EVService.fetchStations();
-        setEvStations(ev);
-    };
-    loadWorld();
-}, []);
-
-// Monitor Buffer Zone
-useEffect(() => {
-    if (!location) return;
-    const inside = GeoUtils.isPointInPolygon(location.coords, GREEN_LINE_POLYGON);
-    if (inside && !inBufferZone) {
-        Alert.alert("Warning", "Entering UN Buffer Zone! Watch out for Guardians.");
-        // Change Circle Color visual logic via state
-    }
-    setInBufferZone(inside);
-}, [location]);
-
-// ...
-
-{/* 1. Dominion Interaction Circle (200m) */ }
-{
-    location && (
-        <Circle
-            center={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
-            radius={200}
-            fillColor={inBufferZone ? "rgba(255, 0, 0, 0.2)" : "rgba(52, 152, 219, 0.2)"}
-            strokeColor={inBufferZone ? "rgba(255, 0, 0, 0.5)" : "rgba(52, 152, 219, 0.5)"}
-            strokeWidth={1}
-            zIndex={900}
-        />
-    )
-}
-
-{/* GREEN LINE POLYGON */ }
-<Polygon
-    coordinates={GREEN_LINE_POLYGON}
-    fillColor="rgba(0, 255, 0, 0.2)"
-    strokeColor="lime"
-    strokeWidth={2}
-/>
-
-{/* EV STATIONS */ }
-{
-    evStations.map((ev) => (
-        <Marker
-            key={`ev-${ev.ID}`}
-            coordinate={{ latitude: ev.AddressInfo.Latitude, longitude: ev.AddressInfo.Longitude }}
-            title={ev.AddressInfo.Title}
-            description={`Power: ${ev.Connections?.[0]?.PowerKW || '?'} kW`}
-        >
-            <View className="items-center justify-center bg-green-100 p-1 rounded-full border border-green-600">
-                <Text style={{ fontSize: 20 }}>🔋</Text>
-            </View>
-            <Callout>
-                <View className="p-2 w-48">
-                    <Text className="font-bold mb-1">{ev.AddressInfo.Title}</Text>
-                    <Text className="text-xs text-gray-600 mb-1">{ev.OperatorInfo?.Title || 'Unknown Operator'}</Text>
-                    <Text className="text-xs text-gray-500">
-                        {ev.Connections?.[0]?.PowerKW} kW - {ev.Connections?.[0]?.ConnectionType?.Title}
-                    </Text>
-                    <Text className="text-[10px] text-gray-400 mt-2 italic">Data provided by Open Charge Map</Text>
-                </View>
-            </Callout>
-        </Marker>
-    ))
-}
-
-{/* 2. User Buildings */ }
-{
-    buildings.map((b) => (
-        <Marker
-            key={b.id}
-            coordinate={{ latitude: b.latitude, longitude: b.longitude }}
-            title={`Building Lv.${b.level}`}
-            onCalloutPress={() => {
-                // ... existing logic ...
-                if (b.user_id === currentUser?.id) {
-                    DominionService.collectIncome(currentUser.id, b, location!.coords.latitude, location!.coords.longitude);
-                } else if (currentUser) {
-                    DominionService.attackBuilding(currentUser.id, b, location!.coords.latitude, location!.coords.longitude);
-                }
-            }}
-        >
-            <View className="items-center">
-                <Text style={{ fontSize: 32 }}>{DominionService.getBuildingEmoji(b.level)}</Text>
-                {b.ruined_until && <Text className="absolute text-2xl -top-2">🔥</Text>}
-                <View className="bg-black/50 px-2 rounded-full mt-1">
-                    <Text className="text-white text-[10px] font-bold">Lv.{b.level}</Text>
-                </View>
-            </View>
-        </Marker>
-    ))
-}
-
-{/* 3. Monuments (World Bosses) */ }
-{
-    monuments.map((m) => (
-        <Marker
-            key={m.id}
-            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
-            title={m.name}
-            onCalloutPress={() => {
-                if (!location || !currentUser) return;
-                Alert.alert("Attack Boss?", `Attack ${m.name}?`, [
-                    { text: "Cancel" },
-                    { text: "Attack", onPress: () => DominionService.attackMonument(currentUser.id, m, location.coords.latitude, location.coords.longitude) }
-                ]);
-            }}
-        >
-            <View className="items-center">
-                <Text style={{ fontSize: 40 }}>{m.emoji}</Text>
-                <View className="bg-red-900/80 px-2 rounded-full mt-1 border border-red-500">
-                    <Text className="text-white text-[10px] font-bold">BOSS</Text>
-                </View>
-            </View>
-        </Marker>
-    ))
-}
-
-{/* ... Districts ... */ }
-
-{
-    reports.map((report) => (
-        <Marker
-            key={report.id}
-            coordinate={{ latitude: report.latitude, longitude: report.longitude }}
-            title={report.type}
-        >
-            <MemoizedCustomMarker type={report.type} user={report.user} />
-            <Callout>
-                <View className="p-2 w-40">
-                    <Text className="font-bold">{report.type}</Text>
-                </View>
-            </Callout>
-        </Marker>
-    ))
-}
 import * as Location from 'expo-location';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { GlassContainer } from '../components/common/GlassContainer';
 import { VerificationCard } from '../components/map/VerificationCard';
@@ -171,6 +22,13 @@ import { XPProgressBar } from '../components/game/XPProgressBar';
 import { HellumiStarMarker, HellumiStar } from '../components/map/HellumiStarMarker';
 import { DominionService, UserBuilding, Monument, GasStation } from '../services/dominionService';
 import { BackpackModal } from '../components/game/BackpackModal';
+import { GameHUD } from '../components/game/GameHUD';
+import { PlayerCard } from '../components/game/PlayerCard';
+import { ActionSidebar } from '../components/game/ActionSidebar';
+import { WazeReportMenu } from '../components/map/WazeReportMenu';
+import { PlayerDock } from '../components/game/PlayerDock';
+import { PlayerDashboardModal } from '../components/game/PlayerDashboardModal';
+import { AdminToolsModal } from '../components/game/AdminToolsModal';
 
 import { NAVIGATION_MAP_STYLE } from '../constants/MapStyles';
 import { DISTRICTS, CHECKPOINTS, UN_ZONES } from '../constants/Districts';
@@ -225,36 +83,8 @@ const CustomMarker = ({ type, user, isFixed, speed_limit, emoji }: { type: strin
         );
     }
 
-    // Fixed Radar (Apple Camera Emoji in white bubble)
-    if (isFixed) {
-        return (
-            <View className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-lg border-2 border-gray-200">
-                <Text style={{ fontSize: 22 }}>📷</Text>
-                {speed_limit && (
-                    <View className="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 items-center justify-center border border-white">
-                        <Text className="text-white text-[8px] font-bold">{speed_limit}</Text>
-                    </View>
-                )}
-            </View>
-        );
-    }
-
-    // User Avatar
-    if (user?.emoji_avatar) {
-        return (
-            <View className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-lg border-2 border-cyan-500">
-                <Text style={{ fontSize: 24 }}>{user.emoji_avatar}</Text>
-                {/* Small type badge */}
-                <View className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gray-800 items-center justify-center border border-white">
-                    <Text style={{ fontSize: 8 }}>
-                        {type === 'SPEED_CAMERA' ? '📷' : type === 'POLICE' ? '👮' : '🚗'}
-                    </Text>
-                </View>
-            </View>
-        );
-    }
-
-    // Default Pins
+    // 1. Check for Report/Event Type first to prioritize visual Event identification
+    // (User said: "If I report police, police emoji should appear")
     let bgColor = COLORS.emergency;
     let symbol = "!";
 
@@ -280,11 +110,52 @@ const CustomMarker = ({ type, user, isFixed, speed_limit, emoji }: { type: strin
             symbol = "🧀";
             break;
         case 'ACCIDENT':
-            bgColor = "#991B1B"; // Red-800 (Darker for severe)
+            bgColor = "#991B1B"; // Red-800
             symbol = "💥";
+            break;
+        case 'GAS':
+            bgColor = "#10B981";
+            symbol = "⛽";
             break;
     }
 
+    // Special Case: User Avatar (Only if it's NOT a specific report type, effectively 'Self' or 'Other Player')
+    // If type is generic or empty, show Avatar. 
+    // BUT we are using this for Reports too.
+    // Logic: If it is a Report Marker (has type other than generic), show Report Icon with attribution.
+
+    if (['SPEED_CAMERA', 'POLICE', 'TRAFFIC', 'HAZARD', 'HELLUMI_SPOT', 'ACCIDENT', 'GAS'].includes(type) || isFixed) {
+        return (
+            <View style={{ backgroundColor: bgColor }} className="w-10 h-10 rounded-full border-2 border-white items-center justify-center shadow-lg">
+                <Text style={{ fontSize: 22 }}>{symbol}</Text>
+
+                {/* Speed Limit Badge */}
+                {speed_limit && (
+                    <View className="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 items-center justify-center border border-white">
+                        <Text className="text-white text-[8px] font-bold">{speed_limit}</Text>
+                    </View>
+                )}
+
+                {/* Reporter Attribution Badge (Small User Avatar) */}
+                {user?.emoji_avatar && !isFixed && (
+                    <View className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white items-center justify-center border border-gray-200">
+                        <Text style={{ fontSize: 10 }}>{user.emoji_avatar}</Text>
+                    </View>
+                )}
+            </View>
+        );
+    }
+
+    // Fallback: If it's just a User (no specific report type), show their Big Avatar
+    if (user?.emoji_avatar) {
+        return (
+            <View className="w-10 h-10 bg-white rounded-full items-center justify-center shadow-lg border-2 border-cyan-500">
+                <Text style={{ fontSize: 24 }}>{user.emoji_avatar}</Text>
+            </View>
+        );
+    }
+
+    // Default Fallback
     return (
         <View style={{ backgroundColor: bgColor }} className="w-8 h-8 rounded-full border-2 border-white items-center justify-center shadow-md">
             <Text style={{ fontSize: 16 }}>{symbol}</Text>
@@ -297,7 +168,10 @@ const CustomMarker = ({ type, user, isFixed, speed_limit, emoji }: { type: strin
 const MemoizedCustomMarker = React.memo(CustomMarker);
 
 export const MapScreen = () => {
+    const navigation = useNavigation<any>();
     const { t } = useTranslation();
+
+
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [permissionStatus, setPermissionStatus] = useState<Location.PermissionStatus | 'loading'>('loading');
     const [reports, setReports] = useState<ReportMarker[]>([]);
@@ -319,6 +193,8 @@ export const MapScreen = () => {
     const [monuments, setMonuments] = useState<Monument[]>([]);
     const [gasStations, setGasStations] = useState<GasStation[]>([]);
     const [showBackpack, setShowBackpack] = useState(false);
+    const [showReportMenu, setShowReportMenu] = useState(false);
+    const [showDashboard, setShowDashboard] = useState(false);
 
     // 6. EV Stations & Green Line
     const [evStations, setEvStations] = useState<EVStation[]>([]);
@@ -328,6 +204,10 @@ export const MapScreen = () => {
     const [revealedAreas, setRevealedAreas] = useState<{ latitude: number, longitude: number }[]>([]);
     const [treasures, setTreasures] = useState<any[]>([]);
 
+    // Admin
+    const [showAdminTools, setShowAdminTools] = useState(false);
+    const isAdmin = currentUser?.username === 'Ekrem' || currentUser?.email === 'esadiguvendiren@gmail.com';
+
     // Load World Data
     useEffect(() => {
         const loadWorld = async () => {
@@ -335,8 +215,8 @@ export const MapScreen = () => {
             setBuildings(b);
             const m = await DominionService.getMonuments();
             setMonuments(m);
-            const ev = await EVService.fetchStations();
-            setEvStations(ev);
+            // const ev = await EVService.fetchStations();
+            // setEvStations(ev);
             const gas = await DominionService.getGasStations();
             setGasStations(gas);
             const t = await DominionService.getTreasures();
@@ -427,6 +307,15 @@ export const MapScreen = () => {
             const active = await ReportService.getActiveReports();
             let allMarkers: ReportMarker[] = [];
 
+            // Spawn Random Bots around user
+            if (location) {
+                const nearbyBots = NavigationService.generateBots([
+                    { latitude: location.coords.latitude, longitude: location.coords.longitude },
+                    { latitude: location.coords.latitude + 0.005, longitude: location.coords.longitude + 0.005 } // Mock path for generation
+                ], 5);
+                setBots(nearbyBots);
+            }
+
             if (active) {
                 const transformed = active.map((r: any) => {
                     let lat = r.latitude || 0;
@@ -474,6 +363,13 @@ export const MapScreen = () => {
             if (user) {
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
                 if (profile) setCurrentUser(profile);
+                else {
+                    // Profile missing - Redirect to Setup
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'ProfileSetup' }],
+                    });
+                }
             }
         })();
 
@@ -490,7 +386,11 @@ export const MapScreen = () => {
                     // Fetch profile logic omitted for brevity in realtime, ideally we join or fetch
                     let userProfile = undefined;
                     if (newReport.user_id) {
-                        const { data } = await supabase.from('profiles').select('username, current_tier, emoji_avatar').eq('id', newReport.user_id).single();
+                        const { data, error } = await supabase
+                            .from('profiles')
+                            .select('username, current_tier, emoji_avatar, coins, gems, health, max_health, xp, level, energy')
+                            .eq('id', newReport.user_id) // Keep newReport.user_id as per original logic
+                            .single();
                         if (data) userProfile = data;
                     }
 
@@ -499,7 +399,11 @@ export const MapScreen = () => {
                         latitude: lat,
                         longitude: long,
                         type: newReport.type,
-                        user: userProfile
+                        user: userProfile ? {
+                            username: userProfile.username,
+                            tier: userProfile.current_tier,
+                            emoji_avatar: userProfile.emoji_avatar
+                        } : undefined
                     };
 
                     setReports(prev => [marker, ...prev]);
@@ -520,6 +424,23 @@ export const MapScreen = () => {
             supabase.removeChannel(reportSub);
         };
     }, []);
+
+    // Separate effect for Level Up Animation
+    const prevLevelRef = useRef<number>(1);
+    useEffect(() => {
+        if (!currentUser) return;
+
+        if (currentUser.level > prevLevelRef.current) {
+            Alert.alert(
+                "Level Up! 🎊",
+                `Congratulations! You reached Level ${currentUser.level}!\n\n+1000 Coins 💰\n+5m Interaction Radius 🔵`
+            );
+            prevLevelRef.current = currentUser.level;
+        } else {
+            // Init ref if first load
+            prevLevelRef.current = currentUser.level;
+        }
+    }, [currentUser?.level]);
 
     // 2. Geofencing & Voice Alerts
     useEffect(() => {
@@ -573,15 +494,43 @@ export const MapScreen = () => {
     };
 
     // Unified Report Handler (FAB)
-    const handleCreateReport = async (type: 'POLICE' | 'SPEED_CAMERA' | 'HAZARD' | 'HELLUMI_SPOT' | 'ACCIDENT') => {
-        if (!location || !currentUser) return;
+    const handleCreateReport = async (type: string) => {
+        console.log("Creating report:", type); // Debug
+        if (!location) {
+            Alert.alert("Error", "No GPS Location.");
+            return;
+        }
+        if (!currentUser) {
+            Alert.alert("Error", "Not logged in.");
+            return;
+        }
         try {
-            await ReportService.createReport(currentUser.id, type, location.coords.latitude, location.coords.longitude);
+            // Optimistic UI Update - Show marker immediately
+            const pendingMarker: ReportMarker = {
+                id: `pending-${Date.now()}`,
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                type: type as any,
+                user: {
+                    username: currentUser.username,
+                    tier: currentUser.current_tier,
+                    emoji_avatar: currentUser.emoji_avatar
+                }
+            };
+            setReports(prev => [pendingMarker, ...prev]);
+
+            await ReportService.createReport(currentUser.id, type as any, location.coords.latitude, location.coords.longitude);
             VoiceService.speak("Reported! +10 XP"); // Local feedback
             Alert.alert("Reported!", "You gained +10 XP!");
+
             // Refresh logic optional or rely on subscription
+            // Re-fetch to get real ID and server data
+            const active = await ReportService.getActiveReports();
+            // ... (Simple refetch if needed, but subscription handles it usually)
         } catch (e) {
             Alert.alert(t('common.error'));
+            // Remove optimistic marker on error
+            setReports(prev => prev.filter(r => !r.id.startsWith('pending-')));
         }
     };
 
@@ -703,18 +652,18 @@ export const MapScreen = () => {
                             {/* Glowing effect container */}
                             <View className="w-12 h-12 rounded-full bg-cyan-500/30 items-center justify-center">
                                 <View className="w-10 h-10 bg-white rounded-full items-center justify-center border-2 border-white">
-                                    <Text style={{ fontSize: 24 }}>{currentUser?.emoji_avatar || '🏎️'}</Text>
+                                    <Text style={{ fontSize: 24 }}>{currentUser?.emoji_avatar || '👽'}</Text>
                                 </View>
                             </View>
                         </View>
                     </Marker>
                 )}
 
-                {/* 1. Dominion Interaction Circle (200m) */}
+                {/* 1. Dominion Interaction Circle (Base 200m + 5m per Level) */}
                 {location && (
                     <Circle
                         center={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
-                        radius={200}
+                        radius={200 + ((currentUser?.level || 1) * 5)}
                         fillColor="rgba(52, 152, 219, 0.2)"
                         strokeColor="rgba(52, 152, 219, 0.5)"
                         strokeWidth={1}
@@ -922,111 +871,176 @@ export const MapScreen = () => {
                         </Callout>
                     </Marker>
                 ))}
+                {/* 7. BOTS (Enemies) */}
+                {bots.map((bot) => (
+                    <Marker
+                        key={bot.id}
+                        coordinate={{ latitude: bot.latitude, longitude: bot.longitude }}
+                        title="Enemy Bot"
+                        onCalloutPress={() => {
+                            Alert.alert("Enemy Encounter", "Fight this bot?", [
+                                { text: "Run" },
+                                {
+                                    text: "Fight ⚔️", onPress: async () => {
+                                        if (!currentUser) return;
+                                        // Simple win logic
+                                        const win = Math.random() > 0.3;
+                                        if (win) {
+                                            // Try to get loot
+                                            const droppedItem = await DominionService.dropItemChance(currentUser.id);
+
+                                            // Requirement: +50 Coins, +20 XP
+                                            const earnedCoins = 50;
+                                            const earnedXp = 20;
+
+                                            let msg = `You defeated the bot!\n+${earnedXp} XP\n+${earnedCoins} Coins`;
+                                            if (droppedItem) {
+                                                msg += `\n\n🎁 LOOT DROPPED!\n${droppedItem.item_type} (Power: ${droppedItem.power})`;
+                                            }
+
+                                            Alert.alert("Victory! 🏆", msg);
+
+                                            // Call Update Service Manually for Bot Win (ReportService is mainly for Reports)
+                                            // We can re-use the update profile logic or create a helper. 
+                                            // For speed, let's do a direct update here or use a DominionService method if it existed.
+                                            // Ideally: DominionService.recordBotWin(currentUser.id, 50, 20);
+                                            // Let's use Supabase directly here for 100% certainty.
+                                            const { error } = await supabase.rpc('increment_player_stats', {
+                                                user_id: currentUser.id,
+                                                add_coins: earnedCoins,
+                                                add_xp: earnedXp
+                                            });
+
+                                            // Fallback if RPC doesn't exist (likely doesn't yet), use standard update
+                                            if (error) {
+                                                await supabase.from('profiles').update({
+                                                    coins: (currentUser.coins || 0) + earnedCoins,
+                                                    xp: (currentUser.xp || 0) + earnedXp
+                                                }).eq('id', currentUser.id);
+                                            }
+
+                                            setBots(prev => prev.filter(b => b.id !== bot.id));
+                                        } else {
+                                            Alert.alert("Defeat", "You took damage and ran away.");
+                                        }
+                                    }
+                                }
+                            ]);
+                        }}
+                    >
+                        <View className="items-center">
+                            <Text style={{ fontSize: 28 }}>🤖</Text>
+                            <View className="bg-red-600 w-8 h-1 mt-1 rounded-full" />
+                        </View>
+                    </Marker>
+                ))}
+
             </MapView>
 
-            {/* Top Bar with Search & XP */}
-            <SafeAreaView className="absolute top-0 w-full z-50 pointer-events-box-none">
-                {/* XP Progress Overlay */}
-                {currentUser && (
-                    <XPProgressBar
-                        currentXP={currentUser.current_xp || 0}
-                        nextTierXP={100} // Mock next tier threshold or calc logic
-                        tierName={currentUser.current_tier || 'Traveler'}
-                    />
-                )}
+            {/* --- NEW GAME UI --- */}
 
-                {/* Search Bar */}
-                <SearchBar
-                    onPlaceSelected={async (details) => {
-                        if (details && mapRef.current) {
-                            const { lat, lng } = details;
+            {/* Top HUD (Stats) */}
+            {/* Top HUD (Stats) */}
+            <GameHUD
+                coins={currentUser?.coins || 0}
+                gems={currentUser?.gems || 0}
+                health={currentUser?.health || 100}
+                maxHealth={currentUser?.max_health || 100}
+                energy={currentUser?.energy || 100}
+                backpackCount={currentUser?.inventory_count || 0} // Actual count
+                backpackCapacity={currentUser?.inventory_capacity || 50}
+            />
 
-                            // Animate Camera
-                            mapRef.current.animateToRegion({
-                                latitude: lat,
-                                longitude: lng,
-                                latitudeDelta: 0.05,
-                                longitudeDelta: 0.05,
-                            });
-                            setFollowUser(false);
+            {/* Right Action Sidebar */}
+            <ActionSidebar
+                onGiftsPress={() => setShowBackpack(true)}
+                onLeaderboardPress={() => navigation.navigate('Leaderboard')}
+                onChatPress={() => Alert.alert("Global Channel", "Connecting to frequency... 📡")}
+                unreadGifts={0} // Fixed to 0 for now until inventory logic synced
+            />
 
-                            // Calculate Route (if location available)
-                            if (location) {
-                                const route = await NavigationService.getRoute(
-                                    location.coords.latitude,
-                                    location.coords.longitude,
-                                    lat,
-                                    lng
-                                );
+            {/* WAZE UI LAYER */}
 
-                                if (route) {
-                                    setRouteCoords(route.coordinates);
+            {/* Report FAB (Bottom Right, floating above Dock) */}
+            <TouchableOpacity
+                onPress={() => setShowReportMenu(true)}
+                className="absolute bottom-44 right-4 w-12 h-12 bg-orange-500 rounded-full items-center justify-center shadow-lg border-2 border-white z-40"
+            >
+                <Text style={{ fontSize: 22 }}>⚠️</Text>
+            </TouchableOpacity>
 
-                                    // Spawn Bots
-                                    const newBots = NavigationService.generateBots(route.coordinates);
-                                    setBots(newBots);
-
-                                    Alert.alert("Route Calculated", `Distance: ${(route.distance / 1000).toFixed(1)} km. Watch out for Bots! 👾`);
-                                }
-                            }
-                        }
-                    }}
+            {/* NEW: Player Dock (Bottom Bar) */}
+            {/* Added extra bottom padding for Safe Area compatibility */}
+            <View className="absolute bottom-16 w-full z-50">
+                {/* Increased from bottom-10 to bottom-16 to avoid home indicator overlap */}
+                <PlayerDock
+                    user={currentUser}
+                    onPress={() => setShowDashboard(true)}
+                    onSearchPress={() => navigation.navigate('Search')}
+                    onBuildPress={handleBuild}
                 />
-            </SafeAreaView>
-
-            {/* Recenter Button */}
-            <TouchableOpacity
-                onPress={handleRecenter}
-                className="absolute bottom-48 right-5 bg-white p-3 rounded-full shadow-lg z-20"
-            >
-                <Text className="text-xl">📍</Text>
-            </TouchableOpacity>
-
-            {/* Test Button (Keep for dev) */}
-            <TouchableOpacity
-                onPress={handleTestRadar}
-                className="absolute bottom-64 right-5 bg-yellow-400 p-3 rounded-xl shadow-lg z-20 items-center justify-center"
-                style={{ width: 60, height: 60 }}
-            >
-                <Text className="text-xl">📡</Text>
-            </TouchableOpacity>
-
-            {/* Verification Card */}
-            {
-                nearestReport && (
-                    <View className="absolute bottom-32 w-full z-10 px-2">
-                        <VerificationCard
-                            reportType={nearestReport.type}
-                            onVerify={() => handleVerify(nearestReport.id, 'VERIFY')}
-                            onReject={() => handleVerify(nearestReport.id, 'REJECT')}
-                        />
-                    </View>
-                )
-            }
-
-            {/* Report FAB */}
-            <View className="absolute bottom-10 self-center z-50">
-                <ReportFAB onReport={handleCreateReport} />
             </View>
 
-            {/* Dominion Controls */}
-            <SafeAreaView className="absolute top-24 right-2 space-y-2">
-                <TouchableOpacity
-                    onPress={() => setShowBackpack(true)}
-                    className="bg-gray-800 p-3 rounded-full border border-gray-600 shadow-lg"
-                >
-                    <Text className="text-2xl">🎒</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={handleBuild}
-                    className="bg-green-600 p-3 rounded-full border border-white shadow-lg"
-                >
-                    <Text className="text-2xl">🔨</Text>
-                </TouchableOpacity>
-            </SafeAreaView>
+            {/* Full Screen Report Menu Modal */}
+            <WazeReportMenu
+                visible={showReportMenu}
+                onClose={() => setShowReportMenu(false)}
+                onReport={(type) => {
+                    handleCreateReport(type as any);
+                    setShowReportMenu(false);
+                }}
+            />
+
+            {/* Verification Card */}
+            {nearestReport && (
+                <View className="absolute bottom-32 w-full z-10 px-2">
+                    <VerificationCard
+                        reportType={nearestReport.type}
+                        onVerify={() => handleVerify(nearestReport.id, 'VERIFY')}
+                        onReject={() => handleVerify(nearestReport.id, 'REJECT')}
+                    />
+                </View>
+            )}
 
             {/* Modals */}
-            {currentUser && <BackpackModal visible={showBackpack} onClose={() => setShowBackpack(false)} userId={currentUser.id} />}
+            <PlayerDashboardModal
+                visible={showDashboard}
+                onClose={() => setShowDashboard(false)}
+                user={currentUser}
+            />
+
+            {/* ADMIN TOOLS */}
+            <AdminToolsModal
+                visible={showAdminTools}
+                onClose={() => setShowAdminTools(false)}
+                user={currentUser}
+                onTeleport={(lat: number, lon: number) => {
+                    setLocation({
+                        coords: { latitude: lat, longitude: lon, altitude: 0, accuracy: 0, altitudeAccuracy: 0, heading: 0, speed: 0 },
+                        timestamp: Date.now()
+                    } as any);
+                    setFollowUser(false);
+                    if (mapRef.current) {
+                        mapRef.current.animateToRegion({
+                            latitude: lat,
+                            longitude: lon,
+                            latitudeDelta: 0.01,
+                            longitudeDelta: 0.01
+                        });
+                    }
+                }}
+            />
+
+            {/* Admin Button (Only for Admin) */}
+            {isAdmin && (
+                <TouchableOpacity
+                    onPress={() => setShowAdminTools(true)}
+                    className="absolute top-12 left-4 bg-red-600 p-2 rounded-full border-2 border-white shadow-xl z-50"
+                >
+                    <Text className="text-2xl">🛡️</Text>
+                </TouchableOpacity>
+            )}
+
         </View >
     );
 };

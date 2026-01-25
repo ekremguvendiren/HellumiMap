@@ -19,7 +19,7 @@ export const SafetyScreen = () => {
                 <View className="items-center mb-10">
                     <Text className="text-6xl mb-4">⚠️</Text>
                     <Text className="text-3xl font-bold text-white text-center">STAY SAFE!</Text>
-                    <Text className="text-gray-400 text-center mt-2">HellumiMap Protocol</Text>
+                    <Text className="text-gray-400 text-center mt-2">Halloumi Map Protocol</Text>
                 </View>
 
                 <GlassContainer className="p-6">

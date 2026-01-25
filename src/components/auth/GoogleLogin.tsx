@@ -57,6 +57,7 @@ export const GoogleLogin = () => {
                         id: data.user.id,
                         username: data.user.user_metadata.full_name || 'Traveler',
                         avatar_url: data.user.user_metadata.avatar_url,
+                        emoji_avatar: '👽', // Default avatar
                         xp: 0,
                         tier: 'Traveler'
                     });
@@ -71,10 +72,21 @@ export const GoogleLogin = () => {
         }
     };
 
+    const handleGoogleLogin = () => {
+        if (CONFIG.iosClientId.includes('YOUR_') || CONFIG.androidClientId.includes('YOUR_') || CONFIG.webClientId.includes('YOUR_')) {
+            Alert.alert(
+                "Configuration Missing",
+                "Google Login is not configured yet.\n\nPlease update 'GoogleLogin.tsx' with your Google Cloud Client IDs or use Guest Login for now."
+            );
+            return;
+        }
+        promptAsync();
+    };
+
     return (
         <TouchableOpacity
             disabled={!request}
-            onPress={() => promptAsync()}
+            onPress={handleGoogleLogin}
             className="flex-row items-center justify-center bg-white border border-gray-300 py-3 px-4 rounded-xl shadow-sm space-x-2 w-full"
         >
             {/* Google Icon (Text for now) */}

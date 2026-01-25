@@ -35,11 +35,13 @@ export const EVService = {
                     maxresults: 100,
                     compact: true,
                     verbose: false
-                }
+                },
+                timeout: 5000 // 5s timeout
             });
             return response.data as EVStation[];
         } catch (error) {
-            console.error("EV Service Error:", error);
+            // Silently fail for UI, just log warning
+            console.warn("EV Service currently unavailable (Mocking empty response).");
             return [];
         }
     }

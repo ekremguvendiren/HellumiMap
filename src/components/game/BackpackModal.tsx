@@ -25,10 +25,15 @@ export const BackpackModal = ({ visible, onClose, userId }: BackpackModalProps) 
         setLoading(false);
     };
 
-    const handleEquip = (item: InventoryItem) => {
-        // Mock Equip Logic: Just toggle for now or show alert
-        // Real logic would update DB `is_equipped` and ensure only 1 per type
-        Alert.alert("Equip", `Equipping ${item.item_type} (Power: ${item.power})`);
+    const handleEquip = async (item: InventoryItem) => {
+        const success = await DominionService.toggleEquipItem(userId, item.id, item.is_equipped);
+        if (success) {
+            // Optimistic update or reload
+            loadInventory();
+            Alert.alert(item.is_equipped ? "Unequipped" : "Equipped", `${item.item_type} updated.`);
+        } else {
+            Alert.alert("Error", "Could not update equipment.");
+        }
     };
 
     const renderItem = ({ item }: { item: InventoryItem }) => (
@@ -36,7 +41,9 @@ export const BackpackModal = ({ visible, onClose, userId }: BackpackModalProps) 
             <View className="flex-row items-center">
                 <View className="w-10 h-10 rounded-full bg-gray-800 items-center justify-center mr-3">
                     <Text className="text-xl">
-                        {item.item_type === 'SWORD' ? '⚔️' : item.item_type === 'SHIELD' ? '🛡️' : '🔋'}
+                        {item.item_type === 'SWORD' ? '🗡️' :
+                            item.item_type === 'SHIELD' ? '🛡️' :
+                                item.item_type === 'POTION' ? '🧪' : '🔋'}
                     </Text>
                 </View>
                 <View>

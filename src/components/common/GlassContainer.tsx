@@ -10,24 +10,30 @@ cssInterop(BlurView, {
 interface GlassContainerProps {
     children: React.ReactNode;
     intensity?: number;
+    tint?: 'light' | 'dark' | 'default';
     style?: ViewStyle;
-    className?: string; // For Tailwind classes
+    className?: string; // Outer container class
+    contentContainerClassName?: string; // Inner view class
+    rounded?: string; // Optional override for roundedness
 }
 
 export const GlassContainer: React.FC<GlassContainerProps> = ({
     children,
     intensity = 50,
+    tint = 'dark', // Default to dark for Cheapshot vibe
     style,
-    className = ""
+    className = "",
+    contentContainerClassName = "p-4", // Default padding, can be overridden
+    rounded = "rounded-3xl" // Default rounded, can be overridden
 }) => {
     return (
         <BlurView
             intensity={intensity}
-            tint="light"
-            className={`overflow-hidden rounded-3xl border border-white/20 ${className}`}
+            tint={tint}
+            className={`overflow-hidden border border-white/10 ${rounded} ${className}`}
             style={style}
         >
-            <View className="bg-white/10 p-4">
+            <View className={`bg-black/10 ${contentContainerClassName}`}>
                 {children}
             </View>
         </BlurView>

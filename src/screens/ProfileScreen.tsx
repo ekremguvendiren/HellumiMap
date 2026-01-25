@@ -9,6 +9,7 @@ import { getTier, getTierProgress } from '../utils/gamification';
 const USER = {
     username: 'Mehmet88',
     xp: 12500,
+    level: 5,
     region: 'Kyrenia',
     emoji_avatar: '🦁'
 };
@@ -17,7 +18,7 @@ export const ProfileScreen = () => {
     const { t, i18n } = useTranslation();
     const [ghostMode, setGhostMode] = useState(false);
     const tier = getTier(USER.xp);
-    const progress = getTierProgress(USER.xp);
+    const progress = getTierProgress(USER.xp, USER.level);
 
     const toggleGhostMode = () => setGhostMode(!ghostMode);
 
@@ -94,6 +95,18 @@ export const ProfileScreen = () => {
                                 ))}
                             </View>
                         </View>
+
+
+                        {/* Logout Button */}
+                        <TouchableOpacity
+                            onPress={async () => {
+                                const { error } = await import('../services/supabase').then(m => m.supabase.auth.signOut());
+                                if (error) Alert.alert("Error", error.message);
+                            }}
+                            className="flex-row items-center justify-center py-3 mt-2 border-t border-gray-100"
+                        >
+                            <Text className="text-red-500 font-bold">Log Out 🚪</Text>
+                        </TouchableOpacity>
                     </GlassContainer>
 
                     {/* Badges Gallery */}
@@ -117,6 +130,6 @@ export const ProfileScreen = () => {
 
                 </ScrollView>
             </SafeAreaView>
-        </View>
+        </View >
     );
 };
