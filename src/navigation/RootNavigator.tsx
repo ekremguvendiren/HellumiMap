@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, ActivityIndicator, Image } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { MapScreen } from '../screens/MapScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -75,6 +76,7 @@ export const RootNavigator = () => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setLoading(false);
+            SplashScreen.hideAsync();
         });
 
         // Listen for changes
@@ -87,16 +89,7 @@ export const RootNavigator = () => {
     }, []);
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <Image
-                    source={require('../../assets/hellumi_logo.png')}
-                    style={{ width: 150, height: 150, borderRadius: 30, marginBottom: 20 }}
-                    resizeMode="contain"
-                />
-                <ActivityIndicator size="small" color={COLORS.orange} />
-            </View>
-        );
+        return null; // Native splash screen is visible
     }
 
     return (
