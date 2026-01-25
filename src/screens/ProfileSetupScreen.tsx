@@ -73,7 +73,7 @@ export const ProfileSetupScreen = () => {
 
             // If auth is truly missing, redirect to login
             if (error.message.includes("No authenticated user")) {
-                navigation.replace("Login");
+                await supabase.auth.signOut();
             }
         } finally {
             setLoading(false);
