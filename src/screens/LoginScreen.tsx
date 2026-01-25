@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, SafeAreaView, Image, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
-import { GoogleLogin } from '../components/auth/GoogleLogin';
 import { COLORS } from '../constants/colors';
 import { useTranslation } from 'react-i18next';
 
