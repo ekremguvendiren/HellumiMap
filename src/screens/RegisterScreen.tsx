@@ -28,10 +28,15 @@ export const RegisterScreen = () => {
             if (authError) throw authError;
 
             if (authData.user) {
-                // Navigate to Profile Setup
-                Alert.alert('Success', 'Account created! Let\'s set up your profile.', [
-                    { text: 'OK', onPress: () => navigation.navigate('ProfileSetup') }
-                ]);
+                if (!authData.session) {
+                    Alert.alert('Verification Required', 'Please check your email to verify your account before logging in.', [
+                        { text: 'OK', onPress: () => navigation.navigate('Login') }
+                    ]);
+                } else {
+                    Alert.alert('Success', 'Account created! Let\'s set up your profile.', [
+                        { text: 'OK', onPress: () => navigation.navigate('ProfileSetup') }
+                    ]);
+                }
             }
         } catch (error: any) {
             Alert.alert('Registration Error', error.message);
