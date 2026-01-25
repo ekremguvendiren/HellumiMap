@@ -1,30 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { GlassContainer } from '../components/common/GlassContainer';
 import { COLORS } from '../constants/colors';
 import { getTier } from '../utils/gamification';
 
-// Mock Data (In real app, fetch from Supabase 'profiles' or 'weekly_wardens')
-const MOCK_LEADERBOARD = [
-    { id: '1', username: 'Mehmet88', xp: 12500, region: 'Kyrenia' }, // Legend
-    { id: '2', username: 'SarahCy', xp: 4200, region: 'Nicosia' },   // Warden
-    { id: '3', username: 'DriftKing', xp: 3800, region: 'Famagusta' },
-    { id: '4', username: 'Tourist1', xp: 600, region: 'Paphos' },
-    { id: '5', username: 'Newbie', xp: 120, region: 'Kyrenia' },
-    { id: '6', username: 'User_6', xp: 90, region: 'Kyrenia' },
-    { id: '7', username: 'User_7', xp: 80, region: 'Nicosia' },
-    { id: '8', username: 'User_8', xp: 50, region: 'Famagusta' },
-];
+import { supabase } from '../services/supabase';
 
 export const LeaderboardScreen = () => {
     const [activeTab, setActiveTab] = useState<'AllTime' | 'Kyrenia' | 'Nicosia' | 'Famagusta'>('Kyrenia');
+    const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
-    // Filter data
-    const filteredData = activeTab === 'AllTime'
-        ? MOCK_LEADERBOARD
-        : MOCK_LEADERBOARD.filter(u => u.region === activeTab);
+    useEffect(() => {
+        fetchLeaderboard();
+    }, [activeTab]);
 
-    const sortedData = [...filteredData].sort((a, b) => b.xp - a.xp);
+    const fetchLeaderboard = async () => {
+        // In real app, filter by region if column exists. For now, we fetch top XP users.
+        // If region column exists in profiles, use it. Otherwise just show top users globally for MVP.
+        let query = supabase.from('profiles').select('id, username, xp, emoji_avatar').order('xp', { ascending: false }).limit(50);
+
+        // if (activeTab !== 'AllTime') query = query.eq('region', activeTab); // Uncomment if schema has region
+
+        const { data, error } = await query;
+        if (data) {
+            setLeaderboardData(data);
+        }
+    };
+
+    const sortedData = leaderboardData; // Already sorted by DB
     const top3 = sortedData.slice(0, 3);
     const rest = sortedData.slice(3);
 

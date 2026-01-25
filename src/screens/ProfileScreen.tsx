@@ -1,22 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, Switch, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Switch, ScrollView, SafeAreaView, TouchableOpacity, Alert, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { GlassContainer } from '../components/common/GlassContainer';
 import { COLORS } from '../constants/colors';
 import { getTier, getTierProgress } from '../utils/gamification';
-
-// Mock User
-const USER = {
-    username: 'Mehmet88',
-    xp: 12500,
-    level: 5,
-    region: 'Kyrenia',
-    emoji_avatar: '🦁'
-};
+import { supabase } from '../services/supabase';
+import Constants from 'expo-constants'; // For version
 
 export const ProfileScreen = () => {
     const { t, i18n } = useTranslation();
     const [ghostMode, setGhostMode] = useState(false);
+    const [userProfile, setUserProfile] = useState<any>(null);
+
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (data) setUserProfile(data);
+        }
+    };
+
+    const USER = userProfile || { username: 'Loading...', xp: 0, level: 1, emoji_avatar: '😎' };
+
     const tier = getTier(USER.xp);
     const progress = getTierProgress(USER.xp, USER.level);
 
@@ -107,6 +116,22 @@ export const ProfileScreen = () => {
                         >
                             <Text className="text-red-500 font-bold">Log Out 🚪</Text>
                         </TouchableOpacity>
+                    </GlassContainer>
+
+                    {/* About App */}
+                    <Text className="text-lg font-bold text-gray-700 mb-3">About App ℹ️</Text>
+                    <GlassContainer className="mb-6 p-4">
+                        <View className="flex-row justify-between mb-2">
+                            <Text className="font-bold text-gray-600">Version</Text>
+                            <Text className="text-gray-500">1.0.0 (Build 5)</Text>
+                        </View>
+                        <View className="flex-row justify-between">
+                            <Text className="font-bold text-gray-600">Developer</Text>
+                            <Text className="text-gray-500">Ekrem Guvendiren</Text>
+                        </View>
+                        <View className="mt-4 border-t border-gray-100 pt-2">
+                            <Text className="text-xs text-center text-gray-400">© 2024 Halloumi Map. All rights reserved.</Text>
+                        </View>
                     </GlassContainer>
 
                     {/* Badges Gallery */}

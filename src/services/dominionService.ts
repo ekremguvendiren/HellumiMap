@@ -208,8 +208,16 @@ export const DominionService = {
         const { data: profile } = await supabase.from('profiles').select('level').eq('id', attackerId).single();
         const attackerLevel = profile?.level || 1;
 
-        // Fetch Weapon Power (Mock 0 for now until Inventory connected)
-        const weaponPower = 0;
+        // Fetch Weapon Power
+        const { data: weapon } = await supabase
+            .from('inventory')
+            .select('power')
+            .eq('user_id', attackerId)
+            .eq('is_equipped', true)
+            .eq('item_type', 'SWORD')
+            .single();
+
+        const weaponPower = weapon?.power || 0;
 
         const damage = (attackerLevel * 10) + weaponPower + Math.floor(Math.random() * 50);
 
@@ -267,7 +275,6 @@ export const DominionService = {
         }
 
         // 2. Execute Attack (RPC preferred for atomicity)
-        // We try RPC first, if not exists (dev env), we fallback to client logic (less secure but works for MVP)
         const damageAmount = 500 + Math.floor(Math.random() * 200); // Heavy Siege Damage
 
         const { data: rpcData, error: rpcError } = await supabase.rpc('attack_monument', {
@@ -358,8 +365,16 @@ export const DominionService = {
             return false;
         }
 
-        // 3. Deduct Coins & Apply Boost (Mock Boost: Just Alert for MVP)
-        await supabase.from('profiles').update({ coins: profile.coins - 100 }).eq('id', userId);
+        // 3. Deduct Coins & Apply Boost
+        const { error } = await supabase.from('profiles').update({
+            coins: profile.coins - 100,
+            // active_boost_until: new Date(Date.now() + 3600000).toISOString() // Future enhancement
+        }).eq('id', userId);
+
+        if (error) {
+            Alert.alert("Error", "Transaction failed.");
+            return false;
+        }
 
         Alert.alert("Refueled! ⛽", "Movement speed boosted for 1 hour! (Mock Effect)");
         return true;
