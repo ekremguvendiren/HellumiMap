@@ -49,9 +49,12 @@ export interface GasStation {
 
 export interface InventoryItem {
     id: string;
+    user_id?: string;
+    item_name: string;
     item_type: 'SWORD' | 'SHIELD' | 'BATTERY' | 'POTION';
-    power: number;
-    is_equipped: boolean;
+    power_value: number | null;
+    is_equipped: boolean | null;
+    created_at?: string;
 }
 
 export const DominionService = {

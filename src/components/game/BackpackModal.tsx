@@ -26,7 +26,7 @@ export const BackpackModal = ({ visible, onClose, userId }: BackpackModalProps) 
     };
 
     const handleEquip = async (item: InventoryItem) => {
-        const success = await DominionService.toggleEquipItem(userId, item.id, item.is_equipped);
+        const success = await DominionService.toggleEquipItem(userId, item.id, item.is_equipped ?? false);
         if (success) {
             // Optimistic update or reload
             loadInventory();
@@ -48,7 +48,7 @@ export const BackpackModal = ({ visible, onClose, userId }: BackpackModalProps) 
                 </View>
                 <View>
                     <Text className="text-white font-bold">{item.item_type}</Text>
-                    <Text className="text-gray-400 text-xs">Power: {item.power}</Text>
+                    <Text className="text-gray-400 text-xs">Power: {item.power_value || 0}</Text>
                 </View>
             </View>
             <TouchableOpacity
