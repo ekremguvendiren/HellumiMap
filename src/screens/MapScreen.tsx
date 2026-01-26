@@ -753,7 +753,7 @@ export const MapScreen = () => {
                 {monuments.map((m) => (
                     <Marker
                         key={m.id}
-                        coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+                        coordinate={{ latitude: m.lat, longitude: m.lng }}
                         title={m.name}
                         onCalloutPress={() => {
                             if (!location || !currentUser) return;
@@ -776,11 +776,11 @@ export const MapScreen = () => {
                 {gasStations.map((g) => (
                     <Marker
                         key={g.id}
-                        coordinate={{ latitude: g.latitude, longitude: g.longitude }}
+                        coordinate={{ latitude: g.lat, longitude: g.lng }}
                         title={g.name}
                         onCalloutPress={() => {
                             if (!location || !currentUser) return;
-                            Alert.alert("Gas Station", `Buy Fuel at ${g.brand}? (100 Coins)`, [
+                            Alert.alert("Gas Station", `Buy Fuel at ${g.name}? (100 Coins)`, [
                                 { text: "Cancel" },
                                 { text: "Buy Fuel ⛽", onPress: () => DominionService.buyFuel(currentUser.id, g, location.coords.latitude, location.coords.longitude) }
                             ]);

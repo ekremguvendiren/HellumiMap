@@ -30,21 +30,22 @@ export interface UserBuilding {
 export interface Monument {
     id: string;
     name: string;
-    latitude: number;
-    longitude: number;
+    lat: number;
+    lng: number;
     health: number;
     max_health: number;
-    ruined_until: string | null;
+    ruined_until?: string | null;
     emoji: string;
+    owner_id?: string | null;
+    captured_at?: string | null;
+    tax_expires_at?: string | null;
 }
 
 export interface GasStation {
     id: string;
     name: string;
-    latitude: number;
-    longitude: number;
-    brand: string;
-    zone: string;
+    lat: number;
+    lng: number;
 }
 
 export interface InventoryItem {
@@ -278,7 +279,7 @@ export const DominionService = {
     attackMonument: async (attackerId: string, monument: Monument, userLat: number, userLon: number) => {
         // 1. Check Range (400m)
         // 1. Check Range (100m - Siege Range)
-        const dist = DominionService.getDistance(userLat, userLon, monument.latitude, monument.longitude);
+        const dist = DominionService.getDistance(userLat, userLon, monument.lat, monument.lng);
         if (dist > 100) {
             Alert.alert("Too Far", "Must be within 100m to Siege!");
             return;
@@ -368,7 +369,7 @@ export const DominionService = {
 
     buyFuel: async (userId: string, station: GasStation, userLat: number, userLon: number) => {
         // 1. Check Range (200m)
-        const dist = DominionService.getDistance(userLat, userLon, station.latitude, station.longitude);
+        const dist = DominionService.getDistance(userLat, userLon, station.lat, station.lng);
         if (dist > INTERACTION_RADIUS) {
             Alert.alert("Too Far", `Drive within ${INTERACTION_RADIUS}m to refill.`);
             return false;
@@ -501,8 +502,9 @@ export const DominionService = {
 
         const { data, error } = await supabase.from('inventory').insert({
             user_id: userId,
+            item_name: type,
             item_type: type,
-            power: power
+            power_value: power
         }).select().single();
 
         if (error) {
