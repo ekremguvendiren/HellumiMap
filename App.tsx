@@ -2,6 +2,8 @@ import "./global.css";
 import './src/i18n'; // Initialize i18n
 import React, { useEffect } from 'react';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { AuthProvider } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Platform } from 'react-native';
@@ -21,9 +23,11 @@ export default function App() {
   }, []);
 
   return (
-    <>
-      <StatusBar style="light" />
-      <RootNavigator />
-    </>
+    <ErrorBoundary>
+      <AuthProvider>
+        <StatusBar style="light" />
+        <RootNavigator />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

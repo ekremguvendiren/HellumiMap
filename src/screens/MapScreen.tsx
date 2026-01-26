@@ -29,6 +29,12 @@ import { WazeReportMenu } from '../components/map/WazeReportMenu';
 import { PlayerDock } from '../components/game/PlayerDock';
 import { PlayerDashboardModal } from '../components/game/PlayerDashboardModal';
 import { AdminToolsModal } from '../components/game/AdminToolsModal';
+import { WorldNewsTicker } from '../components/game/WorldNewsTicker';
+import { DailyQuestsModal } from '../components/game/DailyQuestsModal';
+import { AchievementsModal } from '../components/game/AchievementsModal';
+import { FactionModal } from '../components/game/FactionModal';
+import { OnboardingTutorial, checkTutorialComplete } from '../components/game/OnboardingTutorial';
+import { questService } from '../services/questService';
 
 import { NAVIGATION_MAP_STYLE } from '../constants/MapStyles';
 import { DISTRICTS, CHECKPOINTS, UN_ZONES } from '../constants/Districts';
@@ -209,6 +215,12 @@ export const MapScreen = () => {
     const [showAdminTools, setShowAdminTools] = useState(false);
     const isAdmin = currentUser?.username === 'Ekrem' || currentUser?.email === 'esadiguvendiren@gmail.com';
 
+    // New Game Modals
+    const [showQuests, setShowQuests] = useState(false);
+    const [showAchievements, setShowAchievements] = useState(false);
+    const [showFaction, setShowFaction] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+
     // Load World Data
     useEffect(() => {
         const loadWorld = async () => {
@@ -222,9 +234,50 @@ export const MapScreen = () => {
             setGasStations(gas);
             const t = await DominionService.getTreasures();
             setTreasures(t);
+
+            // Check if tutorial should be shown
+            const tutorialComplete = await checkTutorialComplete();
+            if (!tutorialComplete) {
+                setShowTutorial(true);
+            }
         };
         loadWorld();
     }, []);
+
+    // Spawn Bots Around Player (500m radius) - Once when location is available
+    useEffect(() => {
+        if (location && bots.length === 0) {
+            const raiders = NavigationService.spawnBotsAroundPlayer(
+                location.coords.latitude,
+                location.coords.longitude,
+                5 // Spawn 5 Raider Bots
+            );
+            setBots(raiders);
+            console.log("👾 Spawned 5 Raider Bots!");
+        }
+    }, [location]);
+
+    // Energy Regeneration: +5 every 5 minutes (online)
+    useEffect(() => {
+        if (!currentUser?.id) return;
+
+        const regenInterval = setInterval(async () => {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('energy')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (profile && profile.energy < 100) {
+                const newEnergy = Math.min(100, profile.energy + 5);
+                await supabase.from('profiles').update({ energy: newEnergy }).eq('id', currentUser.id);
+                setCurrentUser((prev: any) => prev ? { ...prev, energy: newEnergy } : prev);
+                console.log("⚡ Energy regenerated:", newEnergy);
+            }
+        }, 5 * 60 * 1000); // Every 5 minutes
+
+        return () => clearInterval(regenInterval);
+    }, [currentUser?.id]);
 
     // Monitor Buffer Zone
     useEffect(() => {
@@ -307,15 +360,6 @@ export const MapScreen = () => {
             // Fetch User Reports
             const active = await ReportService.getActiveReports();
             let allMarkers: ReportMarker[] = [];
-
-            // Spawn Random Bots around user
-            if (location) {
-                const nearbyBots = NavigationService.generateBots([
-                    { latitude: location.coords.latitude, longitude: location.coords.longitude },
-                    { latitude: location.coords.latitude + 0.005, longitude: location.coords.longitude + 0.005 } // Mock path for generation
-                ], 5);
-                setBots(nearbyBots);
-            }
 
             if (active) {
                 const transformed = active.map((r: any) => {
@@ -695,10 +739,10 @@ export const MapScreen = () => {
                         }}
                     >
                         <View className="items-center">
-                            <Text style={{ fontSize: 32 }}>{DominionService.getBuildingEmoji(b.level)}</Text>
+                            <Text style={{ fontSize: 32 }}>{DominionService.getBuildingEmoji(b.tier || 'TENT')}</Text>
                             {b.ruined_until && <Text className="absolute text-2xl -top-2">🔥</Text>}
                             <View className="bg-black/50 px-2 rounded-full mt-1">
-                                <Text className="text-white text-[10px] font-bold">Lv.{b.level}</Text>
+                                <Text className="text-white text-[10px] font-bold">{b.tier || 'TENT'}</Text>
                             </View>
                         </View>
                     </Marker>
@@ -951,7 +995,11 @@ export const MapScreen = () => {
 
             {/* --- NEW GAME UI --- */}
 
-            {/* Top HUD (Stats) */}
+            {/* World News Ticker */}
+            <View className="absolute top-24 w-full z-40">
+                <WorldNewsTicker />
+            </View>
+
             {/* Top HUD (Stats) */}
             <GameHUD
                 coins={currentUser?.coins || 0}
@@ -1053,6 +1101,56 @@ export const MapScreen = () => {
                 </TouchableOpacity>
             )}
 
+            {/* Game Feature Buttons (Left Side) */}
+            <View className="absolute top-40 left-4 space-y-2 z-40">
+                <TouchableOpacity
+                    onPress={() => setShowQuests(true)}
+                    className="bg-purple-600 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">📋</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => setShowAchievements(true)}
+                    className="bg-yellow-500 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">🏅</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => setShowFaction(true)}
+                    className="bg-blue-600 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">⚔️</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* New Game Modals */}
+            <DailyQuestsModal
+                visible={showQuests}
+                onClose={() => setShowQuests(false)}
+                onQuestCompleted={(coins, xp) => {
+                    Alert.alert('Quest Completed!', `+${coins} 💰  +${xp} ⭐`);
+                }}
+            />
+
+            <AchievementsModal
+                visible={showAchievements}
+                onClose={() => setShowAchievements(false)}
+            />
+
+            <FactionModal
+                visible={showFaction}
+                onClose={() => setShowFaction(false)}
+                onJoined={(faction) => {
+                    // Refresh user data after joining faction
+                }}
+            />
+
+            <OnboardingTutorial
+                visible={showTutorial}
+                onComplete={() => setShowTutorial(false)}
+            />
+
         </View >
     );
 };
+

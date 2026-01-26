@@ -10,6 +10,7 @@ interface GameHUDProps {
     maxHealth?: number;
     energy?: number;
     maxEnergy?: number;
+    level?: number;
     backpackCount?: number;
     backpackCapacity?: number;
 }
@@ -21,6 +22,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
     maxHealth = 100,
     energy = 100,
     maxEnergy = 100,
+    level = 1,
     backpackCount = 0,
     backpackCapacity = 50
 }) => {
@@ -36,16 +38,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         <View className="absolute top-12 right-4 flex-row items-center space-x-2 z-50">
             {/* Stats Row */}
             <View className="flex-row items-center bg-black/60 rounded-full px-3 py-1 border border-white/10">
-                {/* Backpack */}
+                {/* Level - Primary Stat */}
                 <View className="flex-row items-center mr-3">
-                    <Text className="text-lg mr-1">🎒</Text>
-                    <Text className="text-white font-bold text-xs">{backpackCount}/{backpackCapacity}</Text>
-                </View>
-
-                {/* Health (Hearts) */}
-                <View className="flex-row items-center mr-3">
-                    <Text className="text-lg mr-1">💚</Text>
-                    <Text className="text-white font-bold text-xs">{formatNumber(health)}</Text>
+                    <Text className="text-lg mr-1">🌟</Text>
+                    <Text className="text-yellow-400 font-bold text-xs">Lv.{level}</Text>
                 </View>
 
                 {/* Energy (Bolt) */}
@@ -60,12 +56,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                     <Text className="text-white font-bold text-xs">{formatNumber(coins)}</Text>
                 </View>
 
-                {/* Gems */}
+                {/* Health (Hearts) */}
+                <View className="flex-row items-center mr-3">
+                    <Text className="text-lg mr-1">💚</Text>
+                    <Text className="text-white font-bold text-xs">{formatNumber(health)}</Text>
+                </View>
+
+                {/* Backpack */}
                 <View className="flex-row items-center">
-                    <Text className="text-lg mr-1">💎</Text>
-                    <Text className="text-white font-bold text-xs">{formatNumber(gems)}</Text>
+                    <Text className="text-lg mr-1">🎒</Text>
+                    <Text className="text-white font-bold text-xs">{backpackCount}/{backpackCapacity}</Text>
                 </View>
             </View>
         </View>
     );
 };
+

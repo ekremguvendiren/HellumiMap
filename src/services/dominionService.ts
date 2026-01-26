@@ -4,15 +4,27 @@ import { Alert } from 'react-native';
 const INTERACTION_RADIUS = 200; // meters
 const ATTACK_RADIUS = 400; // meters
 
+// Building Tier System (Per Game Spec)
+export const BUILDING_TIERS = {
+    TENT: { emoji: '⛺', cost: 200, income: 20, hp: 100, minLevel: 1 },
+    HOUSE: { emoji: '🏠', cost: 1000, income: 100, hp: 600, minLevel: 5 },
+    TOWER: { emoji: '🏢', cost: 5000, income: 600, hp: 2500, minLevel: 15 },
+    PALACE: { emoji: '👑', cost: 20000, income: 2500, hp: 10000, minLevel: 40 },
+} as const;
+
+export type BuildingTier = keyof typeof BUILDING_TIERS;
+
 export interface UserBuilding {
     id: string;
     user_id: string;
-    level: number;
+    tier: BuildingTier;
     health: number;
     latitude: number;
     longitude: number;
     last_collected_at: string;
     ruined_until: string | null;
+    stored_rent: number; // Accumulates over time, player must collect
+    level?: number; // Legacy field, use tier instead
 }
 
 export interface Monument {
@@ -43,14 +55,9 @@ export interface InventoryItem {
 }
 
 export const DominionService = {
-    // --- Helper: Get Emojis ---
-    // --- Helper: Get Emojis (Based on Level) ---
-    getBuildingEmoji: (level: number) => {
-        if (level >= 81) return '👑'; // Imperial Palace (81-100)
-        if (level >= 51) return '🏰'; // Castle (51-80)
-        if (level >= 26) return '🏢'; // Agency (26-50)
-        if (level >= 11) return '🏠'; // House (11-25)
-        return '⛺'; // Tent (1-10)
+    // --- Helper: Get Emojis (Based on Tier) ---
+    getBuildingEmoji: (tier: BuildingTier) => {
+        return BUILDING_TIERS[tier]?.emoji || '⛺';
     },
 
     // --- Buildings ---
@@ -97,37 +104,42 @@ export const DominionService = {
     },
 
     /**
-     * Place a new building
+     * Place a new building with tier-based cost/HP
      */
-    placeBuilding: async (userId: string, lat: number, lon: number) => {
-        // 1. Check distance to ANY other building (Mock check for now)
-        // Ideally we do a geospatial query: "Do any buildings intersect 50m radius?"
-
-        // 2. Check Cost & Energy
-        // Cost: 300 for Level 1
-        const cost = 300;
+    placeBuilding: async (userId: string, lat: number, lon: number, tier: BuildingTier = 'TENT') => {
+        const tierData = BUILDING_TIERS[tier];
         const energyCost = 20;
 
-        const { data: profile } = await supabase.from('profiles').select('coins, energy').eq('id', userId).single();
-
+        // 1. Fetch profile for validation
+        const { data: profile } = await supabase.from('profiles').select('coins, energy, level').eq('id', userId).single();
         if (!profile) return false;
 
-        if (profile.coins < cost) {
-            Alert.alert("Insufficient Funds", `Need ${cost} Halloumi Coins 💰. Have ${profile.coins}.`);
-            return false;
-        }
-        if ((profile.energy || 0) < energyCost) {
-            Alert.alert("Exhausted", "Not enough Energy (Need 20⚡). Rest a bit.");
+        // 2. Check Level Requirement
+        if ((profile.level || 1) < tierData.minLevel) {
+            Alert.alert("Level Too Low", `${tier} requires Level ${tierData.minLevel}. You are Level ${profile.level}.`);
             return false;
         }
 
-        // 3. Insert
+        // 3. Check Cost
+        if (profile.coins < tierData.cost) {
+            Alert.alert("Insufficient Funds", `${tier} costs ${tierData.cost} 💰. You have ${profile.coins}.`);
+            return false;
+        }
+
+        // 4. Check Energy
+        if ((profile.energy || 0) < energyCost) {
+            Alert.alert("Exhausted", "Not enough Energy (Need 20⚡).");
+            return false;
+        }
+
+        // 5. Insert Building
         const { error } = await supabase.from('user_buildings').insert({
             user_id: userId,
             latitude: lat,
             longitude: lon,
-            level: 1,
-            health: 1000
+            tier: tier,
+            health: tierData.hp,
+            stored_rent: 0
         });
 
         if (error) {
@@ -135,61 +147,65 @@ export const DominionService = {
             return false;
         }
 
-        // 4. Deduct Coins & Energy
+        // 6. Deduct Coins & Energy
         await supabase.from('profiles').update({
-            coins: profile.coins - cost,
+            coins: profile.coins - tierData.cost,
             energy: profile.energy - energyCost
         }).eq('id', userId);
 
+        Alert.alert("Built! 🏗️", `${tierData.emoji} ${tier} constructed!\nIncome: ${tierData.income} 💰/hr`);
         return true;
     },
 
     /**
-     * Collect Income (Coins/XP)
+     * Collect Income (Coins/XP) - Uses tier-based income rates
      */
     collectIncome: async (userId: string, building: UserBuilding, userLat: number, userLon: number) => {
-        // 1. Check Distance
+        // 1. Check Distance (200m radius)
         const dist = DominionService.getDistance(userLat, userLon, building.latitude, building.longitude);
         if (dist > INTERACTION_RADIUS) {
-            Alert.alert("Too Far", `You must be within ${INTERACTION_RADIUS}m to collect.`);
+            Alert.alert("Too Far", `Must be within ${INTERACTION_RADIUS}m to collect rent.`);
             return;
         }
 
-        // Check Energy
+        // 2. Check Energy
         const { data: profile } = await supabase.from('profiles').select('energy, coins, xp').eq('id', userId).single();
         if ((profile?.energy || 0) < 5) {
             Alert.alert("No Energy", "Need 5⚡ to collect.");
             return;
         }
 
-        // 2. Calculate Income
-        // Rate: Level * 5 Coins/hr
+        // 3. Calculate Income (Tier-based)
+        const tierData = BUILDING_TIERS[building.tier] || BUILDING_TIERS.TENT;
         const now = new Date();
         const last = new Date(building.last_collected_at);
         const diffHours = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
 
         if (diffHours < 0.1) { // Min 6 mins
-            Alert.alert("Wait longer", "Income accumulates over time.");
+            Alert.alert("Wait", "Rent accumulates over time.");
             return;
         }
 
-        const coinsEarned = Math.floor(building.level * 5 * diffHours);
-        const xpEarned = Math.floor(building.level * 2 * diffHours);
+        // Income: tierData.income per hour
+        const coinsEarned = Math.floor(tierData.income * diffHours);
+        const xpEarned = Math.floor(tierData.income * 0.1 * diffHours); // 10% of income as XP
 
-        // 3. Update DB
-        await supabase.from('user_buildings').update({ last_collected_at: now.toISOString() }).eq('id', building.id);
+        // 4. Update Building
+        await supabase.from('user_buildings').update({
+            last_collected_at: now.toISOString(),
+            stored_rent: 0 // Reset stored rent after collection
+        }).eq('id', building.id);
 
-        // 4. Update Profile
-        // Note: Ideally use RPC for atomicity
+        // 5. Update Profile
         if (profile) {
             await supabase.from('profiles').update({
                 coins: profile.coins + coinsEarned,
                 xp: profile.xp + xpEarned,
-                energy: (profile.energy || 100) - 5 // Deduct 5 Energy
+                energy: (profile.energy || 100) - 5
             }).eq('id', userId);
         }
 
-        Alert.alert("Collected!", `+${coinsEarned} Halloumi Coins 💰 | +${xpEarned} XP`);
+        Alert.alert("Rent Collected! 💰", `+${coinsEarned} Halloumi Coins\n+${xpEarned} XP`);
     },
 
     /**
@@ -237,10 +253,7 @@ export const DominionService = {
             const ruinedDate = new Date();
             ruinedDate.setHours(ruinedDate.getHours() + 1); // Ruined for 1 hour
             updates.ruined_until = ruinedDate.toISOString();
-
-            // Steal Coins Logic (Mock: just give attacker coins, assuming built 'stored' coins concept or stealing from owner profile)
-            // Prompt says "Steal 30% of stored coins". We haven't implemented "stored coins" on building, let's assume "Owner loses 1 level" as per prompt.
-            if (building.level > 1) updates.level = building.level - 1;
+            // Building is ruined - attacker can loot stored_rent (handled separately)
         }
 
         await supabase.from('user_buildings').update(updates).eq('id', building.id);
@@ -466,19 +479,26 @@ export const DominionService = {
     },
 
     /**
-     * Drop Item (Called when Bot defeated)
+     * Drop Item (Called when Bot defeated) - 25% chance per spec
      */
     dropItemChance: async (userId: string) => {
-        // Requirement: 20% Chance
-        if (Math.random() > 0.2) return null;
+        // 25% drop chance per game spec
+        if (Math.random() > 0.25) return null;
 
-        const types = ['SWORD', 'SHIELD', 'BATTERY'];
+        const types = ['SWORD', 'SHIELD', 'BATTERY', 'REPAIR_KIT', 'ENERGY_DRINK'];
         const type = types[Math.floor(Math.random() * types.length)];
-        const power = Math.floor(Math.random() * 20) + 10; // 10-30 power
+
+        // Power varies by item type
+        let power = 10;
+        if (type === 'SWORD') power = Math.floor(Math.random() * 30) + 20; // 20-50 damage
+        if (type === 'SHIELD') power = Math.floor(Math.random() * 20) + 10; // 10-30 defense
+        if (type === 'REPAIR_KIT') power = 100; // Heals 100 HP
+        if (type === 'ENERGY_DRINK') power = 50; // +50 energy
+        if (type === 'BATTERY') power = 25; // +25 energy
 
         const { data, error } = await supabase.from('inventory').insert({
             user_id: userId,
-            item_type: type, // Matches SQL: item_type TEXT
+            item_type: type,
             power: power
         }).select().single();
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, ActivityIndicator, Image } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { MapScreen } from '../screens/MapScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
@@ -13,8 +13,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { ProfileSetupScreen } from '../screens/ProfileSetupScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
 import { COLORS } from '../constants/colors';
-import { supabase } from '../services/supabase';
-import { Session } from '@supabase/supabase-js';
+import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -24,7 +23,7 @@ const MainTabs = () => (
         screenOptions={{
             headerShown: false,
             tabBarStyle: {
-                backgroundColor: 'rgba(255,255,255,0.9)',
+                backgroundColor: 'rgba(26, 26, 46, 0.95)',
                 position: 'absolute',
                 bottom: 20,
                 left: 20,
@@ -34,9 +33,11 @@ const MainTabs = () => (
                 elevation: 5,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 5 },
-                shadowOpacity: 0.1,
-                shadowRadius: 5,
+                shadowOpacity: 0.3,
+                shadowRadius: 10,
                 borderTopWidth: 0,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
             },
             tabBarActiveTintColor: COLORS.deepsea,
             tabBarInactiveTintColor: 'gray',
@@ -47,49 +48,47 @@ const MainTabs = () => (
             name="Map"
             component={MapScreen}
             options={{
-                tabBarIcon: ({ color }) => <View style={{ width: 24, height: 24, backgroundColor: color, borderRadius: 12 }} /> // Replace with Icon
+                tabBarIcon: ({ focused }) => (
+                    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>🗺️</Text>
+                )
             }}
         />
         <Tab.Screen
             name="Leaderboard"
             component={LeaderboardScreen}
             options={{
-                tabBarIcon: ({ color }) => <View style={{ width: 24, height: 24, backgroundColor: color, borderRadius: 4 }} /> // Replace with Icon
+                tabBarIcon: ({ focused }) => (
+                    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>🏆</Text>
+                )
             }}
         />
         <Tab.Screen
             name="Profile"
             component={ProfileScreen}
             options={{
-                tabBarIcon: ({ color }) => <View style={{ width: 24, height: 24, backgroundColor: color, borderRadius: 12 }} /> // Replace with Icon
+                tabBarIcon: ({ focused }) => (
+                    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.5 }}>👤</Text>
+                )
             }}
         />
     </Tab.Navigator>
 );
 
 export const RootNavigator = () => {
-    const [session, setSession] = useState<Session | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { session, loading } = useAuth();
 
     useEffect(() => {
-        // Check initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setLoading(false);
+        if (!loading) {
             SplashScreen.hideAsync();
-        });
-
-        // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
+        }
+    }, [loading]);
 
     if (loading) {
-        return null; // Native splash screen is visible
+        return (
+            <View style={{ flex: 1, backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={COLORS.deepsea} />
+            </View>
+        );
     }
 
     return (

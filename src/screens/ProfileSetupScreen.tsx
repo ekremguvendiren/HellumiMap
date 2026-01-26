@@ -51,10 +51,10 @@ export const ProfileSetupScreen = () => {
                     username: nickname,
                     emoji_avatar: finalAvatar,
                     coins: 1000, // Welcome Bonus
+                    energy: 100, // Full Energy Tank
                     xp: 0,
                     level: 1,
                     joined_at: new Date().toISOString()
-                    // email is not in schema based on recent errors, so we omit it to be safe
                 });
 
             if (error) throw error;

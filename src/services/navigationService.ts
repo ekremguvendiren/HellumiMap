@@ -88,5 +88,36 @@ export const NavigationService = {
             });
         }
         return bots;
+    },
+
+    /**
+     * Spawn bots around player location (500m radius)
+     * This is called on map load to populate the world with enemies
+     */
+    spawnBotsAroundPlayer: (playerLat: number, playerLon: number, count: number = 5): Bot[] => {
+        const bots: Bot[] = [];
+        const SPAWN_RADIUS = 0.005; // ~500m in degrees
+
+        for (let i = 0; i < count; i++) {
+            // Random angle and distance
+            const angle = Math.random() * 2 * Math.PI;
+            const distance = Math.random() * SPAWN_RADIUS;
+
+            const lat = playerLat + distance * Math.cos(angle);
+            const lon = playerLon + distance * Math.sin(angle);
+
+            bots.push({
+                id: `raider_${Date.now()}_${i}`,
+                latitude: lat,
+                longitude: lon,
+                type: 'BOT',
+                hp: 80 + Math.floor(Math.random() * 40), // 80-120 HP
+                reward: {
+                    xp: 30 + Math.floor(Math.random() * 30), // 30-60 XP
+                    coins: 15 + Math.floor(Math.random() * 25) // 15-40 coins - Loot!
+                }
+            });
+        }
+        return bots;
     }
 };
