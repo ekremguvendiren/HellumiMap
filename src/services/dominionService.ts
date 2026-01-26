@@ -90,9 +90,9 @@ export const DominionService = {
         }
         // Parse location if needed, assuming PostGIS returns string or we handle it
         return data.map((b: any) => {
-            // Use lat/lon columns from database
+            // Use lat/lng columns from database
             let lat = b.lat;
-            let lon = b.lon;
+            let lon = b.lng;
 
             if (typeof b.location === 'string') {
                 const coords = b.location.replace('POINT(', '').replace(')', '').split(' ');
@@ -136,7 +136,7 @@ export const DominionService = {
         const { error } = await supabase.from('user_buildings').insert({
             user_id: userId,
             lat: lat,
-            lon: lon,
+            lng: lon,
             tier: tier,
             health: tierData.hp,
             stored_rent: 0
