@@ -956,24 +956,25 @@ export const MapScreen = () => {
 
                                             Alert.alert("Victory! 🏆", msg);
 
-                                            // Call Update Service Manually for Bot Win (ReportService is mainly for Reports)
-                                            // We can re-use the update profile logic or create a helper. 
-                                            // For speed, let's do a direct update here or use a DominionService method if it existed.
-                                            // Ideally: DominionService.recordBotWin(currentUser.id, 50, 20);
-                                            // Let's use Supabase directly here for 100% certainty.
-                                            const { error } = await supabase.rpc('increment_player_stats', {
-                                                user_id: currentUser.id,
-                                                add_coins: earnedCoins,
-                                                add_xp: earnedXp
-                                            });
+                                            // Update coins - fetch current value first to avoid stale data
+                                            const { data: currentProfile } = await supabase
+                                                .from('profiles')
+                                                .select('coins')
+                                                .eq('id', currentUser.id)
+                                                .single();
 
-                                            // Fallback if RPC doesn't exist (likely doesn't yet), use standard update
-                                            if (error) {
-                                                await supabase.from('profiles').update({
-                                                    coins: (currentUser.coins || 0) + earnedCoins,
-                                                    xp: (currentUser.xp || 0) + earnedXp
-                                                }).eq('id', currentUser.id);
+                                            if (currentProfile) {
+                                                await supabase
+                                                    .from('profiles')
+                                                    .update({ coins: currentProfile.coins + earnedCoins })
+                                                    .eq('id', currentUser.id);
                                             }
+
+                                            // Add XP using the RPC function
+                                            await supabase.rpc('add_xp', {
+                                                user_id: currentUser.id,
+                                                amount: earnedXp
+                                            });
 
                                             setBots(prev => prev.filter(b => b.id !== bot.id));
                                         } else {
