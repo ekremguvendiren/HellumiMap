@@ -100,6 +100,11 @@ export const PlayerDashboardModal: React.FC<PlayerDashboardModalProps> = ({ visi
     const nextLevelXp = calculateNextLevelXp(user?.level || 1);
     const xpNeeded = Math.max(0, nextLevelXp - (user?.xp || 0));
 
+    // Early return if user is null to prevent crashes
+    if (!user) {
+        return null;
+    }
+
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View className="flex-1 justify-end">
