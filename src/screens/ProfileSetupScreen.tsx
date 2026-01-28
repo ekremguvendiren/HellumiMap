@@ -42,16 +42,20 @@ export const ProfileSetupScreen = () => {
                 if (!user) throw new Error("No authenticated user found. Please Login again.");
             }
 
-            // 2. Insert or Upsert Profile
-            // We use user.id which is guaranteed to exist now
+            // 2. Insert or Upsert Profile with ALL required fields
             const { error } = await supabase
                 .from('profiles')
                 .upsert({
                     id: user.id,
                     username: nickname,
+                    display_name: nickname,
                     emoji_avatar: finalAvatar,
                     coins: 1000, // Welcome Bonus
+                    gems: 10,
                     energy: 100, // Full Energy Tank
+                    max_energy: 100,
+                    health: 100,
+                    max_health: 100,
                     xp: 0,
                     level: 1,
                     joined_at: new Date().toISOString()
@@ -59,13 +63,15 @@ export const ProfileSetupScreen = () => {
 
             if (error) throw error;
 
-            console.log("Profile created! Navigating to Main...");
+            console.log("Profile created! Refreshing auth context...");
 
-            // 3. Navigate and Reset Stack
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-            });
+            // 3. Trigger auth state refresh - this will automatically navigate to Main
+            // by updating the profile in AuthContext
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (currentSession) {
+                // Force re-fetch by triggering auth event
+                await supabase.auth.refreshSession();
+            }
 
         } catch (error: any) {
             console.error("Profile Setup Error:", error);

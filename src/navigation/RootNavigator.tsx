@@ -75,7 +75,7 @@ const MainTabs = () => (
 );
 
 export const RootNavigator = () => {
-    const { session, loading } = useAuth();
+    const { session, profile, loading } = useAuth();
 
     useEffect(() => {
         if (!loading) {
@@ -91,18 +91,29 @@ export const RootNavigator = () => {
         );
     }
 
+    // Determine if user needs profile setup
+    const needsProfileSetup = session && !profile;
+
     return (
         <NavigationContainer>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {session ? (
                     // Authenticated Stack
-                    <>
-                        <Stack.Screen name="Main" component={MainTabs} />
-                        <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
-                        <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-                    </>
+                    needsProfileSetup ? (
+                        // New user - needs to set up profile first
+                        <>
+                            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+                        </>
+                    ) : (
+                        // Existing user with profile
+                        <>
+                            <Stack.Screen name="Main" component={MainTabs} />
+                            <Stack.Screen name="Search" component={SearchScreen} options={{ presentation: 'modal' }} />
+                            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+                        </>
+                    )
                 ) : (
-                    // Auth Stack
+                    // Auth Stack (Not logged in)
                     <>
                         <Stack.Screen name="Safety" component={SafetyScreen} />
                         <Stack.Screen name="Login" component={LoginScreen} />

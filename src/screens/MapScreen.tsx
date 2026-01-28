@@ -24,7 +24,6 @@ import { DominionService, UserBuilding, Monument, GasStation } from '../services
 import { BackpackModal } from '../components/game/BackpackModal';
 import { GameHUD } from '../components/game/GameHUD';
 import { PlayerCard } from '../components/game/PlayerCard';
-import { ActionSidebar } from '../components/game/ActionSidebar';
 import { WazeReportMenu } from '../components/map/WazeReportMenu';
 import { PlayerDock } from '../components/game/PlayerDock';
 import { PlayerDashboardModal } from '../components/game/PlayerDashboardModal';
@@ -228,8 +227,6 @@ export const MapScreen = () => {
             setBuildings(b);
             const m = await DominionService.getMonuments();
             setMonuments(m);
-            // const ev = await EVService.fetchStations();
-            // setEvStations(ev);
             const gas = await DominionService.getGasStations();
             setGasStations(gas);
             const t = await DominionService.getTreasures();
@@ -306,8 +303,6 @@ export const MapScreen = () => {
 
     const handleBuild = async () => {
         if (!location || !currentUser) return;
-        // Check if user is already near a building (overlap prevention) - Simplified for MVP: Just build
-        // Actual overlap logic should be in service or backend
         const success = await DominionService.placeBuilding(currentUser.id, location.coords.latitude, location.coords.longitude);
         if (success) {
             Alert.alert("Success", "Foundation laid! ⛺");
@@ -712,7 +707,12 @@ export const MapScreen = () => {
                 )}
 
                 {/* 2. User Buildings */}
-                {buildings.map((b) => (
+                {buildings.filter(b =>
+                    typeof b.latitude === 'number' &&
+                    typeof b.longitude === 'number' &&
+                    !isNaN(b.latitude) &&
+                    !isNaN(b.longitude)
+                ).map((b) => (
                     <Marker
                         key={b.id}
                         coordinate={{ latitude: b.latitude, longitude: b.longitude }}
@@ -1012,13 +1012,30 @@ export const MapScreen = () => {
                 backpackCapacity={currentUser?.inventory_capacity || 50}
             />
 
-            {/* Right Action Sidebar */}
-            <ActionSidebar
-                onGiftsPress={() => setShowBackpack(true)}
-                onLeaderboardPress={() => navigation.navigate('Leaderboard')}
-                onChatPress={() => Alert.alert("Global Channel", "Connecting to frequency... 📡")}
-                unreadGifts={0} // Fixed to 0 for now until inventory logic synced
-            />
+            {/* Right Action Buttons */}
+            <View className="absolute right-4 top-40 z-40 space-y-3">
+                {/* Inventory / Backpack */}
+                <TouchableOpacity
+                    onPress={() => setShowBackpack(true)}
+                    className="bg-purple-600 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">🎒</Text>
+                </TouchableOpacity>
+                {/* Leaderboard */}
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('Leaderboard')}
+                    className="bg-yellow-500 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">🏆</Text>
+                </TouchableOpacity>
+                {/* Global Chat */}
+                <TouchableOpacity
+                    onPress={() => Alert.alert("Global Channel", "Connecting to frequency... 📡")}
+                    className="bg-green-600 p-3 rounded-full border-2 border-white shadow-xl"
+                >
+                    <Text className="text-xl">🌍</Text>
+                </TouchableOpacity>
+            </View>
 
             {/* WAZE UI LAYER */}
 
@@ -1064,6 +1081,12 @@ export const MapScreen = () => {
             )}
 
             {/* Modals */}
+            <BackpackModal
+                visible={showBackpack}
+                onClose={() => setShowBackpack(false)}
+                userId={currentUser?.id || ''}
+            />
+
             <PlayerDashboardModal
                 visible={showDashboard}
                 onClose={() => setShowDashboard(false)}

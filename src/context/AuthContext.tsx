@@ -92,31 +92,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             if (error) {
                 console.error('Error fetching profile:', error);
-                // Create default profile if not exists
+                // If profile doesn't exist, do NOT auto-create - let ProfileSetupScreen handle it
                 if (error.code === 'PGRST116') {
-                    const newProfile: Partial<UserProfile> = {
-                        id: userId,
-                        username: `player_${userId.substring(0, 8)}`,
-                        display_name: 'New Player',
-                        coins: 1000,
-                        gems: 10,
-                        xp: 0,
-                        level: 1,
-                        energy: 100,
-                        max_energy: 100,
-                        health: 100,
-                        max_health: 100,
-                    };
-
-                    const { data: created, error: createError } = await supabase
-                        .from('profiles')
-                        .insert(newProfile)
-                        .select()
-                        .single();
-
-                    if (!createError && created) {
-                        setProfile(created as UserProfile);
-                    }
+                    // Profile not found - this is a new user who needs to set up profile
+                    console.log('No profile found - new user needs ProfileSetup');
+                    setProfile(null);
                 }
             } else {
                 setProfile(data as UserProfile);

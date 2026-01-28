@@ -89,22 +89,31 @@ export const DominionService = {
     getBuildings: async () => {
         const { data, error } = await supabase.from('user_buildings').select('*');
         if (error) {
-            console.error(error);
+            console.error('[getBuildings] Error:', error);
             return [];
         }
-        // Parse location if needed, assuming PostGIS returns string or we handle it
-        return data.map((b: any) => {
-            // Use lat/lng columns from database
-            let lat = b.lat;
-            let lon = b.lng;
 
-            if (typeof b.location === 'string') {
+        const mapped = data.map((b: any) => {
+            // Priority: lat/lng columns (these are populated), fallback to latitude/longitude
+            let finalLat = b.lat ?? b.latitude;
+            let finalLng = b.lng ?? b.longitude;
+
+            // If there's a PostGIS location string, parse it
+            if (typeof b.location === 'string' && b.location.includes('POINT')) {
                 const coords = b.location.replace('POINT(', '').replace(')', '').split(' ');
-                lon = parseFloat(coords[0]);
-                lat = parseFloat(coords[1]);
+                finalLng = parseFloat(coords[0]);
+                finalLat = parseFloat(coords[1]);
             }
-            return { ...b, latitude: lat, longitude: lon };
+
+            // Return with explicit latitude/longitude for map markers
+            return {
+                ...b,
+                latitude: finalLat,
+                longitude: finalLng
+            };
         });
+
+        return mapped;
     },
 
     /**
