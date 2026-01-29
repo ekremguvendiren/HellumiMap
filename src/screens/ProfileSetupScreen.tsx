@@ -48,7 +48,6 @@ export const ProfileSetupScreen = () => {
                 .upsert({
                     id: user.id,
                     username: nickname,
-                    display_name: nickname,
                     emoji_avatar: finalAvatar,
                     coins: 1000, // Welcome Bonus
                     gems: 10,
@@ -74,11 +73,24 @@ export const ProfileSetupScreen = () => {
             }
 
         } catch (error: any) {
-            console.error("Profile Setup Error:", error);
-            Alert.alert('Error', error.message || 'Failed to setup profile.');
+            console.error("Profile Setup Error [FULL]:", error);
+            console.error("Error Code:", error?.code);
+            console.error("Error Message:", error?.message);
+            console.error("Error Details:", error?.details);
+            console.error("Error Hint:", error?.hint);
+
+            // Show detailed error breakdown
+            const errorDetails = `
+CODE: ${error?.code || 'N/A'}
+MESSAGE: ${error?.message || 'N/A'}
+DETAILS: ${error?.details || 'N/A'}
+HINT: ${error?.hint || 'N/A'}
+            `.trim();
+
+            Alert.alert('Profile Setup Error', errorDetails);
 
             // If auth is truly missing, redirect to login
-            if (error.message.includes("No authenticated user")) {
+            if (error?.message?.includes("No authenticated user")) {
                 await supabase.auth.signOut();
             }
         } finally {
